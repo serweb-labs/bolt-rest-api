@@ -1,0 +1,35 @@
+{
+    "name": "serweb/rest",
+    "description": "Rest Api Implementation with JWT",
+    "type": "bolt-extension",
+    "keywords": [
+        "rest",
+        "restfull",
+        "json",
+        "authentication",
+        "jwt"
+    ],
+    "require": {
+        "bolt/bolt": "^3.0",
+        "firebase/php-jwt": "> 2"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Luciano Rodríguez",
+            "email": "info@serweb.com.ar"
+        }
+    ],
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "autoload": {
+        "psr-4": {
+            "Bolt\\Extension\\SerWeb\\Rest\\": "src"
+        }
+    },
+    "extra": {
+        "bolt-assets": "web",
+        "bolt-class": "Bolt\\Extension\\SerWeb\\Rest\\RestExtension",
+        "bolt-icon": "icon.png"
+    }
+}
