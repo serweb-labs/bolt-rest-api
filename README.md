@@ -6,6 +6,7 @@ Rest Api for Bolt
  - Use Rest with JWT (json web token) or the native Bolt cookie.
  - Create, update, index and retrieve content in json, xml, and more.
  - Extensible (comming soon!)
+
 ___
 
 #### [Read about Rest](https://en.wikipedia.org/wiki/Representational_state_transfer) 
