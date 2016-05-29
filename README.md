@@ -18,6 +18,7 @@ curl -X POST -H "Cache-Control: no-cache" -H "Postman-Token: 18916ec5-de28-1dfb-
 #### Get the TOKEN.
 the token is returned in the login response, in the X-Access-Token Header
 ___
+
 X-Access-Token →Bearer eyJ0eXAiOiJKV165QiLCJh6G75d7iJIUzI1NiJ9.eyJpYXQiOjE0N57jQ1NMDgsImV4cCI6MTQ2NDU1ODE0NCwiZGF0YSI6eyJpZCI6InhuZXQifX0.dm7XqR91-Wl6zC9jupVVcu4khQz_LOq0cYf56BXHTIw
 
 
