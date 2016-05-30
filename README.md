@@ -9,8 +9,12 @@ Rest Api for Bolt
 
 ___
 
-#### [Read about Rest](https://en.wikipedia.org/wiki/Representational_state_transfer) 
-#### [Read about JWT](https://jwt.io/)
+Installation
+======================
+After install package in extension center, use composer to manage your dependencies and download PHP-JWT:
+
+	composer require firebase/php-jwt
+
 ___
 
 #### Login with JWT.
@@ -36,3 +40,9 @@ ___
 #### Update content:  USE PATCH REQUEST and send the data in the body
 	curl -X PATCH -H "Accept: application/json" -H "Content-Type: application/merge-patch+json" -H "Authorization: Bearer eyJ0eXAiOiJKV165QiLCJh6G75d7iJIUzI1NiJ9.eyJpYXQiOjE0N57jQ1NMDgsImV4cCI6MTQ2NDU1ODE0NCwiZGF0YSI6eyJpZCI6InhuZXQifX0.dm7XqR91-Wl6zC9jupVVcu4khQz_LOq0cYf56BXHTIw" -H "https://example.com/api/pages/1"
 
+___
+
+#### About REST and JWT
+#### [Read about Rest](https://en.wikipedia.org/wiki/Representational_state_transfer) 
+#### [Read about JWT](https://jwt.io/)
+___

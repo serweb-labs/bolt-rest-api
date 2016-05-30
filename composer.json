@@ -10,8 +10,7 @@
         "jwt"
     ],
     "require": {
-        "bolt/bolt": "^3.0",
-        "firebase/php-jwt": "> 2"
+        "bolt/bolt": "^3.0"
     },
     "license": "MIT",
     "authors": [
