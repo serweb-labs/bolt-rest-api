@@ -91,8 +91,6 @@ class RestController implements ControllerProviderInterface
 
     public function before(Request $request)
     {   
-        dump($this->app['users']); exit();
-
         // Get User
         $user = $this->app['users']->getUser($this->config['username']);
 
