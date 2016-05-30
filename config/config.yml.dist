@@ -1,45 +1,61 @@
 endpoints:
-    rest: /api
-    authenticate: /auth
+    rest: '/api'
+    authenticate: '/auth'
 
 security:
-    authenication_mode: jwt_token  # jwt_token | bolt_native (native bolt cookie)
-    secret_key: changeMe # important
-    token_prefix: Bearer
-    request_header_name: Authorization
-    token_lifetime: 3600
-    token_lifetime_max: 5000 # comming soon
-    username_param: username # comming soon
-    password_param: password # comming soon
-    response_header_name: X-Access-Token
-    algoritm: HS256;
+    providers: [anonymous, native, jwt]
+    mode: [jwt]
+
+    #json web tokens configurations
+    jwt:
+        secret: IamASecretKeyChangeMePlease
+        prefix: Bearer
+        lifetime: 3600
+        lifetime_max: 5000
+        user_param: username
+        pass_param: password
+        request_header_name: Authorization
+        response_header_name: X-Access-Token    
+        algoritm: HS256
+
+# options no implemented yet
+
+contenttypes:
+    all:
+        options:
+            limit: 10
+            default: published    
+        index:
+            # all fields: all
+            # one specific related field pages: title
+            # more the one specific related fields: [title, slug, teaser, image]
+            fields: all
+            # all related content type: all
+            # single specific related content type: pages
+            # multiple specific related content type: [pages, entries]
+            related: all            
+            enabled: true
+            where: true
+            filter: true
+            order: true
+            page: true
+        retrieve:
+            fields: all
+            related: all
+            enabled: true
+        create:
+            fields: all
+            enabled: true
+        update:
+            fields: all
+            enabled: true
 
 cors:
     enabled: true
     allow-origin: '*'
 
-# not implemented yet
-rest:
-    all:
-        response-media: ['*'] # accept header
-        request-media:  ['*'] # content-type header
+media:
+    accept: '*'
+    content-type: '*'
 
-    index:
-        order: true
-        where: true
-        filter: true
-        anonymous: true 
-        enabled: true
-
-    retrieve:
-        anonymous: true 
-        enabled: true
-
-    create:
-        enabled: true
-
-    update:
-        enabled: true 
-
-# deprecated: enable where, filter and order by url parameter
 params: true

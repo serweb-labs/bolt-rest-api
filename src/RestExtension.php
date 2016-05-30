@@ -30,10 +30,33 @@ class RestExtension extends SimpleExtension
     {
         $app = $this->getContainer();
         $config = $this->getConfig();
+        $config["username"] = $this->authorize($config, $app);
 
         return [
             $config['endpoints']['rest']  => new RestController($config, $app),
             $config['endpoints']['authenticate'] => new AuthenticateController($config, $app),
         ];
+    }
+
+    /**
+     * Handles GET requests on the /example/url route.
+     *
+     * @param Request $request
+     *
+     * @return Response
+     */
+    public function authorize($config, $app)
+    {
+        foreach ($config['security']['mode'] as $provider) {
+            $cl = "Bolt\Extension\SerWeb\Rest\SecurityProvider\\" . $provider . "SecurityProvider";
+            $provider = new $cl($config, $app);
+            $result = $provider->getAuthorization();
+
+            if ($result['result'] === true) {
+                return $result['data'];
+            }
+
+            return false;
+        }
     }
 }

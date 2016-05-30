@@ -13,7 +13,6 @@ use Cocur\Slugify\Slugify;
 use Bolt\Translation\Translator as Trans;
 use Bolt\Events\AccessControlEvent;
 use Bolt\Events\AccessControlEvents;
-use \Firebase\JWT\JWT;
 
 /**
  * Rest Controller class.
@@ -91,29 +90,11 @@ class RestController implements ControllerProviderInterface
      */
 
     public function before(Request $request)
-    {
-        $secret_key = $this->config['security']['secret_key'];
-        $header_name = $this->config['security']['request_header_name'];
-        $token_prefix = $this->config['security']['token_prefix'];
-        
-        $time = time();
-
-        // GET Token
-        $jwt = $request->headers->get($header_name);
-
-        if (strpos($jwt, $token_prefix." ") !== false) {
-            $final = str_replace($token_prefix." ", "", $jwt);
-        }
-
-        // Validate Token
-        try {
-            $data = JWT::decode($final, $secret_key, array('HS256'));
-        } catch (\Exception $e) {
-            return $this->abort("Unauthorized", 401);
-        }
+    {   
+        dump($this->app['users']); exit();
 
         // Get User
-        $user = $this->app['users']->getUser($data->data->id);
+        $user = $this->app['users']->getUser($this->config['username']);
 
         // Check permissions
         $contenttype = $request->get("contenttypeslug");

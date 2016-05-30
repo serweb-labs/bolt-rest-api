@@ -72,7 +72,8 @@ class AuthenticateController implements ControllerProviderInterface
     {
         $username = trim($request->get('username'));
         $password = trim($request->get('password'));
-        $key = $this->config["security"]["secret_key"];
+        $cfgsec = $this->config["security"];
+        $key = $cfgsec["jwt"]["secret"];
         $event = new AccessControlEvent($request);
 
         try {
@@ -88,14 +89,14 @@ class AuthenticateController implements ControllerProviderInterface
 
                 $data = array(
                     'iat' => $time,
-                    'exp' => $time + ($this->config["security"]["token_lifetime"]),
+                    'exp' => $time + ($cfgsec["jwt"]["lifetime"]),
                     'data' => [
                         'id' => $username,
                         ]
                 );
 
                 $jwt = JWT::encode($data, $key);
-                $token = $this->config["security"]["token_prefix"] . " " . $jwt;
+                $token = $cfgsec["jwt"]["prefix"] . " " . $jwt;
                 
                 $response = new Response();
                 $response->headers->set('X-Access-Token', $token);
@@ -109,7 +110,7 @@ class AuthenticateController implements ControllerProviderInterface
 
                 $response->headers->set(
                     'Access-Control-Expose-Headers',
-                    $this->config["security"]["response-header-name"]
+                    $cfgsec["response-header-name"]
                 );
 
                 return $response;
@@ -130,6 +131,7 @@ class AuthenticateController implements ControllerProviderInterface
     public function corsLogin()
     {
         $response = new Response();
+        $cfgsec = $this->config["security"];
 
         if ($this->config["cors"]["enabled"]) {
             $response->headers->set('Access-Control-Allow-Methods', 'POST');
@@ -141,7 +143,7 @@ class AuthenticateController implements ControllerProviderInterface
 
             $response->headers->set(
                 'Access-Control-Allow-Headers',
-                $this->config["security"]["response-header-name"] . ", content-type"
+                $cfgsec["response-header-name"] . ", content-type"
             );
 
             $response->headers->set('Access-Control-Allow-Credentials', 'true');
