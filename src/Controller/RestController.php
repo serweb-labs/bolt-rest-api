@@ -56,6 +56,9 @@ class RestController implements ControllerProviderInterface
             ->bind('readmultiplecontent')
             ->before(array($this, 'before'));
 
+        $ctr->options('/{contenttypeslug}', array($this, 'corsResponse'))
+            ->bind('multiplecontentOptions');
+
         $ctr->get('/{contenttypeslug}/{slug}', array($this, 'readContentAction'))
             ->value('action', 'view')
             ->bind('readcontent')
@@ -76,6 +79,9 @@ class RestController implements ControllerProviderInterface
             ->bind('deletecontent')
             ->before(array($this, 'before'));
 
+        $ctr->options('/{contenttypeslug}/{slug}', array($this, 'corsResponse'))
+            ->bind('contentOptions');
+
         return $ctr;
 
     }
@@ -90,7 +96,7 @@ class RestController implements ControllerProviderInterface
      */
 
     public function before(Request $request)
-    {   
+    {
         // Get User
         $user = $this->app['users']->getUser($this->config['username']);
 
@@ -283,18 +289,32 @@ class RestController implements ControllerProviderInterface
 
         if ($options["isContent"]) {
 
-            $json = new JSONAccess($this->app);
+            
+            $formatter = new dataFormatter($this->app);
 
             if ($options["single"]) {
-                 $map = $json->json($data);
+                 $map = $formatter->data($data);
                  $content = array("record" => $map);
             } else {
-                $map = $json->json_list($options['contenttype'], $data);
+                $map = $formatter->dataList($options['contenttype'], $data);
                 $content = array("records" => $map);
             }
 
-            $array = $content;
+            /*
+            if ($options["single"]) {
+                $content = array(
+                    "values" => $data->values,
+                    "relation" => $data->relation,
+                    "user" => $data->user['id']
+                    );
+                unset($content['values']['templatefields']);
+            } else {
+                $json = new JSONAccess($this->app);
+                $map = $json->json_list($options['contenttype'], $data);
+                $content = $data; //array("records" => $map);
+            }*/
 
+            $array = $content;
         }
 
         $json = json_encode(
@@ -304,6 +324,13 @@ class RestController implements ControllerProviderInterface
 
         $response = new Response($json, $code, $headers);
         $response->headers->set('Content-Type', 'application/json; charset=UTF-8');
+
+        if ($this->config["cors"]['enabled']) {
+            $response->headers->set(
+                'Access-Control-Allow-Origin',
+                $this->config["cors"]["allow-origin"]
+            );
+        };
 
         return $response;
 
@@ -513,20 +540,29 @@ class RestController implements ControllerProviderInterface
 
         $contenttype = $this->app['storage']->getContentType($contenttypeslug);
 
-        /*
-        $content = $this->app['storage']->getContent(
-            $contenttype['slug'],
-            array('id' => $slug,
-            'status' => '!undefined',
-            'returnsingle' => true)
-        );
-        */
-
         $result = $this->app['storage']->deleteContent($contenttype['slug'], $slug);
         
         $content = array('action' => $result);
 
         return $this->response($content, 204);
 
+    }
+
+    public function corsResponse()
+    {
+        if ($this->config["cors"]['enabled']) {
+            $response = new Response();
+            $response->headers->set(
+                'Access-Control-Allow-Origin',
+                $this->config["cors"]["allow-origin"]
+            );
+            $response->headers->set(
+                'Access-Control-Allow-Headers',
+                $this->config["security"]["jwt"]["request_header_name"]
+            );
+            return $response;
+        } else {
+            return "";
+        }
     }
 }

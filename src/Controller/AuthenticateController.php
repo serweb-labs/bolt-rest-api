@@ -50,11 +50,11 @@ class AuthenticateController implements ControllerProviderInterface
         /** @var $ctr \Silex\ControllerCollection */
         $ctr = $this->app['controllers_factory'];
 
-        $ctr->post('/login', array($this, 'login'))
-            ->bind('login');
+        $ctr->post('/login', array($this, 'restLogin'))
+            ->bind('restLogin');
 
-        $ctr->options('/login', array($this, 'corsLogin'))
-            ->bind('corsLogin');
+        $ctr->options('/login', array($this, 'corsRestLogin'))
+            ->bind('corsRestLogin');
 
         return $ctr;
 
@@ -68,12 +68,12 @@ class AuthenticateController implements ControllerProviderInterface
      *
      * @return \Symfony\Component\HttpFoundation\Response
      */
-    public function login(Request $request)
+    public function restLogin(Request $request)
     {
-        $username = trim($request->get('username'));
-        $password = trim($request->get('password'));
-        $cfgsec = $this->config["security"];
-        $key = $cfgsec["jwt"]["secret"];
+        $c = $this->config["security"];
+        $username = trim($request->get($c['jwt']['user_param']));
+        $password = trim($request->get($c['jwt']['pass_param']));
+        $key = $c["jwt"]["secret"];
         $event = new AccessControlEvent($request);
 
         try {
@@ -89,14 +89,14 @@ class AuthenticateController implements ControllerProviderInterface
 
                 $data = array(
                     'iat' => $time,
-                    'exp' => $time + ($cfgsec["jwt"]["lifetime"]),
+                    'exp' => $time + ($c["jwt"]["lifetime"]),
                     'data' => [
                         'id' => $username,
                         ]
                 );
 
-                $jwt = JWT::encode($data, $key);
-                $token = $cfgsec["jwt"]["prefix"] . " " . $jwt;
+                $jwt = JWT::encode($data, $key, $c["jwt"]['algoritm']);
+                $token = $jwt;
                 
                 $response = new Response();
                 $response->headers->set('X-Access-Token', $token);
@@ -110,9 +110,8 @@ class AuthenticateController implements ControllerProviderInterface
 
                 $response->headers->set(
                     'Access-Control-Expose-Headers',
-                    $cfgsec["response-header-name"]
+                    $c["jwt"]["response_header_name"]
                 );
-
                 return $response;
             }
         } catch (\Exception $e) {
@@ -128,10 +127,10 @@ class AuthenticateController implements ControllerProviderInterface
      * @return \Symfony\Component\HttpFoundation\Response
      */
 
-    public function corsLogin()
+    public function corsRestLogin()
     {
         $response = new Response();
-        $cfgsec = $this->config["security"];
+        $c = $this->config["security"];
 
         if ($this->config["cors"]["enabled"]) {
             $response->headers->set('Access-Control-Allow-Methods', 'POST');
@@ -140,10 +139,10 @@ class AuthenticateController implements ControllerProviderInterface
                 'Access-Control-Allow-Origin',
                 $this->config["cors"]["allow-origin"]
             );
-
+            
             $response->headers->set(
                 'Access-Control-Allow-Headers',
-                $cfgsec["response-header-name"] . ", content-type"
+                $c["jwt"]["request_header_name"] . ", content-type"
             );
 
             $response->headers->set('Access-Control-Allow-Credentials', 'true');

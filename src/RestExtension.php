@@ -25,13 +25,11 @@ class RestExtension extends SimpleExtension
      * To see specific bindings between route and controller method see 'connect()'
      * function in the ExampleController class.
      */
-    
     protected function registerFrontendControllers()
     {
         $app = $this->getContainer();
         $config = $this->getConfig();
         $config["username"] = $this->authorize($config, $app);
-
         return [
             $config['endpoints']['rest']  => new RestController($config, $app),
             $config['endpoints']['authenticate'] => new AuthenticateController($config, $app),
@@ -47,7 +45,7 @@ class RestExtension extends SimpleExtension
      */
     public function authorize($config, $app)
     {
-        foreach ($config['security']['mode'] as $provider) {
+        foreach ($config['security']['providers'] as $provider) {
             $cl = "Bolt\Extension\SerWeb\Rest\SecurityProvider\\" . $provider . "SecurityProvider";
             $provider = new $cl($config, $app);
             $result = $provider->getAuthorization();
