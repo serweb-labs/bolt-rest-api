@@ -46,7 +46,7 @@ class RestExtension extends SimpleExtension
     public function authorize($config, $app)
     {
         foreach ($config['security']['providers'] as $provider) {
-            $cl = "Bolt\Extension\SerWeb\Rest\SecurityProvider\\" . $provider . "SecurityProvider";
+            $cl = "Bolt\Extension\SerWeb\Rest\SecurityProvider\\" . ucfirst($provider) . "SecurityProvider";
             $provider = new $cl($config, $app);
             $result = $provider->getAuthorization();
 

@@ -9,13 +9,8 @@ Rest Api for Bolt
 
 ___
 
-Installation
+Use
 ======================
-After install package in extension center, use composer to manage your dependencies and download PHP-JWT:
-
-	composer require firebase/php-jwt
-
-___
 
 #### Login with JWT.
 
@@ -43,6 +38,6 @@ ___
 ___
 
 #### About REST and JWT
-#### [Read about Rest](https://en.wikipedia.org/wiki/Representational_state_transfer) 
+#### [Read about Rest](https://en.wikipedia.org/wiki/Representational_state_transfer)
 #### [Read about JWT](https://jwt.io/)
 ___

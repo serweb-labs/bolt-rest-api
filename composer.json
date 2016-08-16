@@ -4,10 +4,12 @@
     "type": "bolt-extension",
     "keywords": [
         "rest",
-        "restfull",
+        "restful",
         "json",
         "authentication",
-        "jwt"
+        "authorization",
+        "jwt",
+        "json web token"
     ],
     "require": {
         "bolt/bolt": "^3.0"
@@ -23,7 +25,8 @@
     "prefer-stable": true,
     "autoload": {
         "psr-4": {
-            "Bolt\\Extension\\SerWeb\\Rest\\": "src"
+            "Bolt\\Extension\\SerWeb\\Rest\\": "src",
+            "Firebase\\JWT\\": "vendor/firebase/php-jwt/src"
         }
     },
     "extra": {

@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Cocur\Slugify\Slugify;
 use Bolt\Translation\Translator as Trans;
 use Bolt\Events\AccessControlEvent;
-use \Firebase\JWT\JWT;
+use Firebase\JWT\JWT;
 
 /**
  * Authenticate Controller class.
@@ -77,7 +77,7 @@ class AuthenticateController implements ControllerProviderInterface
         $event = new AccessControlEvent($request);
 
         try {
-  
+
             if (empty($username) || empty($password)) {
                 throw new \Exception('Username does not exist.');
             }
@@ -97,7 +97,7 @@ class AuthenticateController implements ControllerProviderInterface
 
                 $jwt = JWT::encode($data, $key, $c["jwt"]['algoritm']);
                 $token = $jwt;
-                
+
                 $response = new Response();
                 $response->headers->set('X-Access-Token', $token);
 
@@ -139,7 +139,7 @@ class AuthenticateController implements ControllerProviderInterface
                 'Access-Control-Allow-Origin',
                 $this->config["cors"]["allow-origin"]
             );
-            
+
             $response->headers->set(
                 'Access-Control-Allow-Headers',
                 $c["jwt"]["request_header_name"] . ", content-type"
