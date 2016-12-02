@@ -1,15 +1,15 @@
 <?php
-namespace Bolt\Extension\SerWeb\Rest\Controller;
+namespace Bolt\Extension\SerWeb\Rest;
 
 /**
- * dataFormatter library for content.
+ * DataFormatter library for content.
  *
  * @author Tobias Dammers <tobias@twokings.nl>
  * @author Luciano Rodriguez <info@serweb.com.ar>
  */
 
 
-class dataFormatter
+class DataFormatter
 {
     protected $app;
     public function __construct($app)
@@ -59,6 +59,9 @@ class dataFormatter
             $values[$field] = $item->values[$field];
         }
 
+        // set owner
+        $values['ownerid'] = $item->values['ownerid'];
+
         // Check if we have image or file fields present. If so, see if we need to
         // use the full URL's for these.
         if (isset($values[$key]['file'])) {
@@ -85,8 +88,7 @@ class dataFormatter
 
         $content = array(
             "values" => $values,
-            "relation" => $item->relation,
-            "user" => $item->user['id']
+            "relation" => $item->relation
             );
 
         return $content;

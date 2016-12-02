@@ -9,6 +9,8 @@ use Bolt\Extension\SerWeb\Rest\Controller\AuthenticateController;
 use Silex\ControllerCollection;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Silex\Application;
+use Silex\Provider\SerializerServiceProvider;
 
 /**
  * Rest extension class.
@@ -17,6 +19,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class RestExtension extends SimpleExtension
 {
+
     /**
      * {@inheritdoc}
      *
@@ -29,32 +32,46 @@ class RestExtension extends SimpleExtension
     {
         $app = $this->getContainer();
         $config = $this->getConfig();
-        $config["username"] = $this->authorize($config, $app);
+
         return [
             $config['endpoints']['rest']  => new RestController($config, $app),
             $config['endpoints']['authenticate'] => new AuthenticateController($config, $app),
         ];
     }
 
+
     /**
-     * Handles GET requests on the /example/url route.
-     *
-     * @param Request $request
-     *
-     * @return Response
+     * {@inheritdoc}
      */
-    public function authorize($config, $app)
+    protected function registerServices(Application $app)
     {
+        $config = $this->getConfig();
         foreach ($config['security']['providers'] as $provider) {
-            $cl = "Bolt\Extension\SerWeb\Rest\SecurityProvider\\" . ucfirst($provider) . "SecurityProvider";
-            $provider = new $cl($config, $app);
-            $result = $provider->getAuthorization();
+            $name = ucfirst($provider) . "AuthenticationService";
+            $cl = "Bolt\Extension\SerWeb\Rest\Services\\" . $name; 
 
-            if ($result['result'] === true) {
-                return $result['data'];
-            }
+            $app[$name] = $app->share(
+                function ($app) use ($config, $cl) {
+                    return new $cl($config, $app);
+                }
+            );
 
-            return false;
-        }
+        } 
+
+        $app['rest'] = $app->share(
+                    function ($app) use ($config) {
+                        $id = 'Bolt\Extension\SerWeb\Rest\Services\IdentifyService';
+                        return new $id($app, $config);
+                    }
+                );
+
+        $app['rest.response'] = $app->share(
+                    function ($app) use ($config) {
+                        $service = 'Bolt\Extension\SerWeb\Rest\Services\RestResponseService';
+                        return new $service($app, $config);
+                    }
+                );
+        $app->register(new SerializerServiceProvider());
+
     }
 }

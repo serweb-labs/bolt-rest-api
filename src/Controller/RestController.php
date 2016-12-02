@@ -5,14 +5,13 @@ namespace Bolt\Extension\SerWeb\Rest\Controller;
 use Silex\Application;
 use Silex\ControllerCollection;
 use Silex\ControllerProviderInterface;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Bolt\Pager;
 use Cocur\Slugify\Slugify;
 use Bolt\Translation\Translator as Trans;
-use Bolt\Events\AccessControlEvent;
-use Bolt\Events\AccessControlEvents;
+use Bolt\Extension\SerWeb\Rest\DataFormatter;
+
 
 /**
  * Rest Controller class.
@@ -24,6 +23,7 @@ class RestController implements ControllerProviderInterface
     /** @var array The extension's configuration parameters */
     private $config;
     private $app;
+    private $user;
 
     /**
      * Initiate the controller with Bolt Application instance and extension config.
@@ -98,7 +98,10 @@ class RestController implements ControllerProviderInterface
     public function before(Request $request)
     {
         // Get User
-        $user = $this->app['users']->getUser($this->config['username']);
+        $user = $this->app['users']->getUser($this->app['rest']->getUsername());
+
+        // Set User
+        $this->user = $user;
 
         // Check permissions
         $contenttype = $request->get("contenttypeslug");
@@ -121,6 +124,7 @@ class RestController implements ControllerProviderInterface
         if (0 === strpos($mime, 'application/json') || 0 === strpos($mime, 'application/merge-patch+json')) {
             $data = json_decode($request->getContent(), true);
             $request->request->replace(is_array($data) ? $data : array());
+           // dump($request->request->all); exit();
         }
 
         return null;
@@ -132,16 +136,13 @@ class RestController implements ControllerProviderInterface
      * 
      * @param array $data 
      * @param int $code 
-     * @param array $options 
      * 
      * @return response
      */
 
-    public function abort($data, $code, $options = array())
+    public function abort($data, $code)
     {
-
-        return $this->response(array("message" => $data), $code, $options);
-
+        return $this->app['rest.response']->response(array("message" => $data), $code);
     }
 
     /**
@@ -156,6 +157,12 @@ class RestController implements ControllerProviderInterface
     {
 
         $contenttype = $this->app['storage']->getContentType($contenttypeslug);
+        
+        // Rest best practices: allow only plural version of resource
+        if ($contenttype['slug'] !== $contenttypeslug) {
+            return $this->abort("Page $contenttypeslug not found.", Response::HTTP_NOT_FOUND);
+        }
+
         $request = $this->app['request'];
         $filter = $request->get('filter');
         $where = $request->get('where');
@@ -216,126 +223,35 @@ class RestController implements ControllerProviderInterface
 
         $content = $this->app['storage']->getContent($contenttype['slug'], $options);
 
-        $options = array(
-            "single" => false,
-            "isContent" => true,
-            "contenttype" => $contenttype
-        );
-
-        return $this->response($content, 200, $options);
-
-    }
 
 
-    /**
-     * Detect "Accept" head and proccess
-     * 
-     * @param array $data 
-     * @param int $code 
-     * 
-     * @param array $options 
-     * @param array $headers 
-     * 
-     * @return $this->$method|Symfony\Component\HttpFoundation\Response;
-     */
+        // get total count
+        $allopt = $options;
+        $allopt['limit'] = null;
+        $allopt['page'] = null;
+        $allopt['paging'] = false;
 
-    private function response($data, $code, $options = array(), $headers = array())
-    {
-
-        $default = 'application/json';
-
-        if (empty($options["media"])) {
-            $media = $this->app['request']->headers->get('Accept', $default);
-        }
-        
-        $utilFragment = explode(";", $media);
-        $acceptList = explode(",", $utilFragment[0]);
-
-        foreach ($acceptList as $media) {
-            $media =  Slugify::create()->slugify($media, ' ');
-            $media = ucwords($media);
-            $media = str_replace(" ", "", $media);
-            $media[0] = strtolower($media[0]);
-            $method = $media . "Response";
-            $exist = method_exists($this, $method);
-
-            if ($exist) {
-                return $this->$method($data, $code, $headers, $options);
-            }
-        }
-
-        return new Response("Unsupported Media Type", 415);
-
-    }
-
-    /**
-     * Process Json Response in Rest API controller
-     * 
-     * @param array $data 
-     * @param int $code 
-     * @param array $headers 
-     * @param array $options 
-     * 
-     * @return Symfony\Component\HttpFoundation\Response;
-     */
-
-    public function applicationJsonResponse($data, $code, $headers, $options)
-    {
-
-        $array = $data;
-
-        // ReadyFlag warns that the content is ready to
-        // move to the response , ie, no need to adapt.
-
-        if ($options["isContent"]) {
-
-            
-            $formatter = new dataFormatter($this->app);
-
-            if ($options["single"]) {
-                 $map = $formatter->data($data);
-                 $content = array("record" => $map);
-            } else {
-                $map = $formatter->dataList($options['contenttype'], $data);
-                $content = array("records" => $map);
-            }
-
-            /*
-            if ($options["single"]) {
-                $content = array(
-                    "values" => $data->values,
-                    "relation" => $data->relation,
-                    "user" => $data->user['id']
-                    );
-                unset($content['values']['templatefields']);
-            } else {
-                $json = new JSONAccess($this->app);
-                $map = $json->json_list($options['contenttype'], $data);
-                $content = $data; //array("records" => $map);
-            }*/
-
-            $array = $content;
-        }
-
-        $json = json_encode(
-            $array,
-            JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRETTY_PRINT
-        );
-
-        $response = new Response($json, $code, $headers);
-        $response->headers->set('Content-Type', 'application/json; charset=UTF-8');
-
-        if ($this->config["cors"]['enabled']) {
-            $response->headers->set(
-                'Access-Control-Allow-Origin',
-                $this->config["cors"]["allow-origin"]
+        $all = $this->app['storage']->getContent(
+                $contenttype['slug'],
+                $allopt
             );
-        };
 
-        return $response;
+        $count = count($all);
+        $headers = array(
+            'X-Total-Count' => $count,
+            'X-Pagination-Page' => $options['page'],
+            'X-Pagination-Limit' => $options['limit'],
+            );
 
+
+        $formatter = new DataFormatter($this->app);
+        $map = $formatter->dataList($options['contenttype'], $content);
+        $data = array("data" => $map);
+
+
+        return $this->app['rest.response']->response($data, 200, $headers);
     }
-
+ 
      /**
      * View Content Action in the Rest API controller
      *
@@ -349,6 +265,11 @@ class RestController implements ControllerProviderInterface
     {
 
          $contenttype = $this->app['storage']->getContentType($contenttypeslug);
+        
+        // Rest best practices: allow only plural version of resource
+        if ($contenttype['slug'] !== $contenttypeslug) {
+            return $this->abort("Page $contenttypeslug not found.", Response::HTTP_NOT_FOUND);
+        }
 
         // If the contenttype is 'viewless', don't show the record page.
         if (isset($contenttype['viewless']) && $contenttype['viewless'] === true) {
@@ -375,14 +296,14 @@ class RestController implements ControllerProviderInterface
                 Response::HTTP_NOT_FOUND
             );
         }
+ 
+        // format
+        $formatter = new DataFormatter($this->app);
+        $map = $formatter->data($content);
+        $data = array("data" => $map);
 
-        return $this->response(
-            $content,
-            200,
-            array("single" => true,
-            "isContent" => true)
-        );
 
+        return $this->app['rest.response']->response($data, 200);
     }
 
     /**
@@ -395,17 +316,17 @@ class RestController implements ControllerProviderInterface
      * @return response
      */
 
-    public function insertAction($content, $contenttypeslug, $oldStatus)
+    public function insertAction($content, $contenttypeslug, $oldStatus, $repo)
     {
-
         $request = $this->app['request'];
         $contenttype = $this->app['storage']->getContentType($contenttypeslug);
+
 
         // Add non successfull control values to request values
         // http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
         // Also do some corrections
         $requestAll = $request->request->all();
-
+        
         foreach ($contenttype['fields'] as $key => $values) {
             if (isset($requestAll[$key])) {
                 switch ($values['type']) {
@@ -428,9 +349,13 @@ class RestController implements ControllerProviderInterface
             }
         }
 
-        // To check whether the status is allowed, we act as if a status
-        // *transition* were requested.
-        $content->setFromPost($requestAll, $contenttype);
+        // assign values
+        foreach ($contenttype['fields'] as $key => $values) {
+            if (array_key_exists($key, $requestAll)) {
+                $content[$key] = $requestAll[$key];
+            }
+        }
+
         $newStatus = $content['status'];
 
         // Save the record, and return to the overview screen, or to the record (if we clicked 'save and continue')
@@ -444,24 +369,45 @@ class RestController implements ControllerProviderInterface
         // Get the associate record change comment
         $comment = $request->request->get('changelog-comment');
 
-        // Save the record
-        $result = $this->app['storage']->saveContent($content, $comment);
+        // set owner id
+        $content['ownerid'] = $this->user['id'];
+        $content->setDatechanged('now');
+        $values = array('relation' => $request->request->get('relation'));    
 
+        foreach($values['relation'] as $key => $value) {
+            if (!is_array($value)) {
+                $bar = $value . "";
+                $values['relation'][$key] = array(trim($bar));
+            } 
+        }
+        
+        $values['relation']['consumptions'] = array('2168');
+        
+        $related = $this->app['storage']->createCollection('Bolt\Storage\Entity\Relations');
+        $related->setFromPost($values, $content);
+        $content->setRelation($related);
+        
+        // save
+        $result = $repo->save($content);
+
+        // get ID
+        $slug = $content->getId();
+
+       // $result; 
         if (!$result) {
             $error["message"] = Trans::__("Error processing the request");
             $this->abort($error, 500);
         }
 
-        $responseData = array('id' => $result);
+        $responseData = array('id' => $slug);
 
         $location = $this->app['url_generator']->generate(
             'readcontent',
             array('contenttypeslug' => $contenttypeslug,
-            'slug' => $result),
+            'slug' => $slug),
             true
         );
-
-        $options = array("isContent" => false);
+        
 
         // Defalt headers
         $headers = array();
@@ -474,7 +420,7 @@ class RestController implements ControllerProviderInterface
             $code = 200;
         }
 
-        return $this->response($responseData, $code, $options, $headers);
+        return $this->app['rest.response']->response($responseData, $code, $headers);
 
     }
 
@@ -490,13 +436,19 @@ class RestController implements ControllerProviderInterface
     {
 
         $content = $this->app['storage']->getContentObject($contenttypeslug);
+        $repo = $this->app['storage']->getRepository($contenttypeslug);
 
         //set defaults
-        $content['datecreated'] = date('Y-m-d');
-        $content['datepublish'] = date('Y-m-d');
-        $content['status'] = "published";
-        
-        return $this->insertAction($content, $contenttypeslug, "");
+        $content = $repo->create(
+            array(
+                'contenttype' => $contenttypeslug,
+                'datepublish' => date('Y-m-d'),
+                'datecreated' => date('Y-m-d'),
+                'status' => 'published'
+             )
+        );
+
+        return $this->insertAction($content, $contenttypeslug, "", $repo);
 
     }
 
@@ -510,19 +462,12 @@ class RestController implements ControllerProviderInterface
      */
 
     public function updateContentAction($contenttypeslug, $slug)
-    {
-
-        $content = $this->app['storage']->getContent(
-            $contenttypeslug,
-            array(
-                'id' => $slug,
-                'status' => '!undefined'
-            )
-        );
-
+    {   
+        $repo = $this->app['storage']->getRepository($contenttypeslug);
+        $content = $repo->find($slug);
         $oldStatus = $content['status'];
 
-        return $this->insertAction($content, $contenttypeslug, $oldStatus);
+        return $this->insertAction($content, $contenttypeslug, $oldStatus, $repo);
 
     }
 
@@ -544,7 +489,7 @@ class RestController implements ControllerProviderInterface
         
         $content = array('action' => $result);
 
-        return $this->response($content, 204);
+        return $this->app['rest.response']->response($content, 204);
 
     }
 
@@ -556,10 +501,20 @@ class RestController implements ControllerProviderInterface
                 'Access-Control-Allow-Origin',
                 $this->config["cors"]["allow-origin"]
             );
+            $a = $this->config["security"]["jwt"]["request_header_name"] . ", X-Pagination-Limit, X-Pagination-Page, X-Total-Count, Content-Type";
+
+            $methods = "GET, POST, PATCH, PUT, DELETE";
+
             $response->headers->set(
                 'Access-Control-Allow-Headers',
-                $this->config["security"]["jwt"]["request_header_name"]
+                $a
             );
+
+            $response->headers->set(
+                'Access-Control-Allow-Methods',
+                $methods
+            );
+
             return $response;
         } else {
             return "";
