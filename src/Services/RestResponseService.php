@@ -34,17 +34,17 @@ class RestResponseService
 
     /**
      * Detect "Accept" head and proccess
-     * 
-     * @param array $data 
-     * @param int $code 
-     * @param array $headers 
-     * 
+     *
+     * @param array $data
+     * @param int $code
+     * @param array $headers
+     *
      * @return $this->$method|Symfony\Component\HttpFoundation\Response;
      */
     public function response($data, $code, $headers = array())
     {
-        $default = 'application/json';        
-        $media = $this->app['request']->headers->get('Accept', $default);       
+        $default = 'application/json';
+        $media = $this->app['request']->headers->get('Accept', $default);
         
         $utilFragment = explode(";", $media);
         $acceptList = explode(",", $utilFragment[0]);
@@ -68,11 +68,11 @@ class RestResponseService
 
     /**
      * Process Json Response in Rest API controller
-     * 
-     * @param array $data 
-     * @param int $code 
-     * @param array $headers 
-     * 
+     *
+     * @param array $data
+     * @param int $code
+     * @param array $headers
+     *
      * @return Symfony\Component\HttpFoundation\Response;
      */
     public function applicationJsonResponse($data, $code, $headers = array())
@@ -96,37 +96,36 @@ class RestResponseService
                 'Access-Control-Expose-Headers',
                 'X-Pagination-Limit, X-Pagination-Page, X-Total-Count'
             );
-
         };
 
         return $response;
     }
 
-    public function applicationXMLResponse($data, $code, $headers = array()) {
-
-        function to_xml(\SimpleXMLElement $object, array $data)
-        {   
+    public function applicationXMLResponse($data, $code, $headers = array())
+    {
+        function toXml(\SimpleXMLElement $object, array $data)
+        {
             foreach ($data as $key => $value) {
                 if (is_array($value)) {
                     if (is_numeric($key)) {
                         $key = 'record';
                     }
                     $new_object = $object->addChild($key);
-                    to_xml($new_object, $value);
+                    toXml($new_object, $value);
                 } else {
                     if (is_numeric($key)) {
                         $key = 'value';
-                    }  
+                    }
                     $object->addChild($key, $value);
-                }   
-            }   
-        }   
+                }
+            }
+        }
 
         $xml = new \SimpleXMLElement('<?xml version="1.0"?><data></data>');
-        to_xml($xml, $data);
+        toXml($xml, $data);
         $result = $xml->asXML();
         $response = new Response($result);
         $response->headers->set('Content-Type', 'xml');
         return $response;
-    }  
+    }
 }

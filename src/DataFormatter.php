@@ -34,7 +34,6 @@ class DataFormatter
         $items = array_map(array($this, 'cleanListItem'), $items);
 
         return $items;
-
     }
 
     public function data($item)
@@ -65,24 +64,24 @@ class DataFormatter
         // Check if we have image or file fields present. If so, see if we need to
         // use the full URL's for these.
         if (isset($values[$key]['file'])) {
-            foreach($item->contenttype['fields'] as $key => $field) {
+            foreach ($item->contenttype['fields'] as $key => $field) {
                 if (($field['type'] == 'image' || $field['type'] == 'file') && isset($values[$key])) {
-                    $values[$key]['url'] = sprintf('%s%s%s',
+                    $values[$key]['url'] = sprintf(
+                        '%s%s%s',
                         $this->app['paths']['canonical'],
                         $this->app['paths']['files'],
                         $values[$key]['file']
-                        );
+                    );
                 }
                 if ($field['type'] == 'image' && isset($values[$key]) && is_array($this->config['thumbnail'])) {
-                    // dump($this->app['paths']);
-                    $values[$key]['thumbnail'] = sprintf('%s/thumbs/%sx%s/%s',
+                    $values[$key]['thumbnail'] = sprintf(
+                        '%s/thumbs/%sx%s/%s',
                         $this->app['paths']['canonical'],
                         $this->config['thumbnail']['width'],
                         $this->config['thumbnail']['height'],
                         $values[$key]['file']
-                        );
+                    );
                 }
-
             }
         }
 
@@ -104,4 +103,3 @@ class DataFormatter
         return $this->cleanItem($item, 'item-fields');
     }
 }
-

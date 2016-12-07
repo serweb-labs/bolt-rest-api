@@ -12,7 +12,6 @@ use Cocur\Slugify\Slugify;
 use Bolt\Translation\Translator as Trans;
 use Bolt\Extension\SerWeb\Rest\DataFormatter;
 
-
 /**
  * Rest Controller class.
  *
@@ -83,7 +82,6 @@ class RestController implements ControllerProviderInterface
             ->bind('contentOptions');
 
         return $ctr;
-
     }
 
 
@@ -128,15 +126,14 @@ class RestController implements ControllerProviderInterface
         }
 
         return null;
-
     }
 
     /**
      * Abort: response wrapper
-     * 
-     * @param array $data 
-     * @param int $code 
-     * 
+     *
+     * @param array $data
+     * @param int $code
+     *
      * @return response
      */
 
@@ -148,14 +145,13 @@ class RestController implements ControllerProviderInterface
     /**
      * Get multiple content action in the Rest API controller
      *
-     * @param string $contenttypeslug 
+     * @param string $contenttypeslug
      *
      * @return abort|response
      */
 
     public function readMultipleContentAction($contenttypeslug)
     {
-
         $contenttype = $this->app['storage']->getContentType($contenttypeslug);
         
         // Rest best practices: allow only plural version of resource
@@ -206,7 +202,7 @@ class RestController implements ControllerProviderInterface
                 }
                 $options['order'] = $order;
             } else {
-                 $options['order'] = $this->app['config']->get('general/listing_sort');
+                $options['order'] = $this->app['config']->get('general/listing_sort');
             }
            
             $options['filter'] = $filter ? $filter : false;
@@ -214,7 +210,7 @@ class RestController implements ControllerProviderInterface
 
             /** "where" paremeter only work in JSON STANDARD format,
             * Ex. in twig {% setcontent mypages = 'pages' where { datepublish: '>today' } %} in JSON { "datepublish": ">today" }
-            * ever whith double quotes.    
+            * ever whith double quotes.
             */
 
             $getwhere = json_decode($where);
@@ -232,9 +228,9 @@ class RestController implements ControllerProviderInterface
         $allopt['paging'] = false;
 
         $all = $this->app['storage']->getContent(
-                $contenttype['slug'],
-                $allopt
-            );
+            $contenttype['slug'],
+            $allopt
+        );
 
         $count = count($all);
         $headers = array(
@@ -255,7 +251,7 @@ class RestController implements ControllerProviderInterface
      /**
      * View Content Action in the Rest API controller
      *
-     * @param string            $contenttypeslug 
+     * @param string            $contenttypeslug
      * @param string|integer    $slug integer|string
      *
      * @return abort|response
@@ -263,8 +259,7 @@ class RestController implements ControllerProviderInterface
 
     public function readContentAction($contenttypeslug, $slug)
     {
-
-         $contenttype = $this->app['storage']->getContentType($contenttypeslug);
+        $contenttype = $this->app['storage']->getContentType($contenttypeslug);
         
         // Rest best practices: allow only plural version of resource
         if ($contenttype['slug'] !== $contenttypeslug) {
@@ -308,11 +303,11 @@ class RestController implements ControllerProviderInterface
 
     /**
      * Insert Action: proccess create or update
-     * 
-     * @param content $content 
-     * @param string $contenttypeslug 
-     * @param string $oldStatus 
-     * 
+     *
+     * @param content $content
+     * @param string $contenttypeslug
+     * @param string $oldStatus
+     *
      * @return response
      */
 
@@ -372,13 +367,13 @@ class RestController implements ControllerProviderInterface
         // set owner id
         $content['ownerid'] = $this->user['id'];
         $content->setDatechanged('now');
-        $values = array('relation' => $request->request->get('relation'));    
+        $values = array('relation' => $request->request->get('relation'));
 
-        foreach($values['relation'] as $key => $value) {
+        foreach ($values['relation'] as $key => $value) {
             if (!is_array($value)) {
                 $bar = $value . "";
                 $values['relation'][$key] = array(trim($bar));
-            } 
+            }
         }
         
         $values['relation']['consumptions'] = array('2168');
@@ -393,7 +388,7 @@ class RestController implements ControllerProviderInterface
         // get ID
         $slug = $content->getId();
 
-       // $result; 
+       // $result;
         if (!$result) {
             $error["message"] = Trans::__("Error processing the request");
             $this->abort($error, 500);
@@ -421,7 +416,6 @@ class RestController implements ControllerProviderInterface
         }
 
         return $this->app['rest.response']->response($responseData, $code, $headers);
-
     }
 
     /**
@@ -434,7 +428,6 @@ class RestController implements ControllerProviderInterface
 
     public function createContentAction($contenttypeslug)
     {
-
         $content = $this->app['storage']->getContentObject($contenttypeslug);
         $repo = $this->app['storage']->getRepository($contenttypeslug);
 
@@ -449,7 +442,6 @@ class RestController implements ControllerProviderInterface
         );
 
         return $this->insertAction($content, $contenttypeslug, "", $repo);
-
     }
 
     /**
@@ -462,13 +454,12 @@ class RestController implements ControllerProviderInterface
      */
 
     public function updateContentAction($contenttypeslug, $slug)
-    {   
+    {
         $repo = $this->app['storage']->getRepository($contenttypeslug);
         $content = $repo->find($slug);
         $oldStatus = $content['status'];
 
         return $this->insertAction($content, $contenttypeslug, $oldStatus, $repo);
-
     }
 
     /**
@@ -482,7 +473,6 @@ class RestController implements ControllerProviderInterface
 
     public function deleteContentAction($contenttypeslug, $slug)
     {
-
         $contenttype = $this->app['storage']->getContentType($contenttypeslug);
 
         $result = $this->app['storage']->deleteContent($contenttype['slug'], $slug);
@@ -490,7 +480,6 @@ class RestController implements ControllerProviderInterface
         $content = array('action' => $result);
 
         return $this->app['rest.response']->response($content, 204);
-
     }
 
     public function corsResponse()
