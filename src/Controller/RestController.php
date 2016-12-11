@@ -122,7 +122,6 @@ class RestController implements ControllerProviderInterface
         if (0 === strpos($mime, 'application/json') || 0 === strpos($mime, 'application/merge-patch+json')) {
             $data = json_decode($request->getContent(), true);
             $request->request->replace(is_array($data) ? $data : array());
-           // dump($request->request->all); exit();
         }
 
         return null;
@@ -217,9 +216,11 @@ class RestController implements ControllerProviderInterface
             $options = ($getwhere) ? array_merge((array) $options, (array) $getwhere) : $options;
         }
 
-        $content = $this->app['storage']->getContent($contenttype['slug'], $options);
 
-
+        $partial = $this->app['storage']->getContent(
+            $contenttype['slug'],
+            $options
+        );
 
         // get total count
         $allopt = $options;
@@ -227,23 +228,45 @@ class RestController implements ControllerProviderInterface
         $allopt['page'] = null;
         $allopt['paging'] = false;
 
+        // fetch all
         $all = $this->app['storage']->getContent(
             $contenttype['slug'],
             $allopt
         );
 
-        $count = count($all);
+        // filter by related (ex. where {related: "book:1"})
+
+        if (array_key_exists('related', $allopt) && !empty($allopt['related'])) {
+            $rel = explode(":", $allopt['related']);
+            $relations = explode(",", $rel[1]);
+
+            foreach ($partial as $key => $item) {
+                $detect = 0;
+                foreach ($relations as $value) {
+                    if (in_array($value, $item->relation[$rel[0]])) {
+                        $detect = 1;
+                    }
+                }
+
+                if ($detect == 0) {
+                    unset($partial[$key]);
+                }
+            }
+        }
+
+
         $headers = array(
-            'X-Total-Count' => $count,
+            'X-Total-Count' => count($all),
             'X-Pagination-Page' => $options['page'],
             'X-Pagination-Limit' => $options['limit'],
             );
 
-
         $formatter = new DataFormatter($this->app);
-        $map = $formatter->dataList($options['contenttype'], $content);
-        $data = array("data" => $map);
+        $map = $formatter->dataList($options['contenttype'], $partial);
 
+
+
+        $data = array("data" => $map);
 
         return $this->app['rest.response']->response($data, 200, $headers);
     }
@@ -291,7 +314,7 @@ class RestController implements ControllerProviderInterface
                 Response::HTTP_NOT_FOUND
             );
         }
- 
+        
         // format
         $formatter = new DataFormatter($this->app);
         $map = $formatter->data($content);
@@ -376,7 +399,6 @@ class RestController implements ControllerProviderInterface
             }
         }
         
-        $values['relation']['consumptions'] = array('2168');
         
         $related = $this->app['storage']->createCollection('Bolt\Storage\Entity\Relations');
         $related->setFromPost($values, $content);
