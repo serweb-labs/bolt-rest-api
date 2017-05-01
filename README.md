@@ -93,6 +93,7 @@ ___
 ___
 #### Delete content:  USE DELETE REQUEST for delete a content
 If all goes well, the response should be a "204, not content"
+	
 	curl -X DELETE -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/pages/1"
 ___
 
