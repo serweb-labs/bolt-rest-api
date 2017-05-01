@@ -6,15 +6,17 @@ namespace Bolt\Extension\SerWeb\Rest;
  *
  * @author Tobias Dammers <tobias@twokings.nl>
  * @author Luciano Rodriguez <info@serweb.com.ar>
+ *
  */
-
 
 class DataFormatter
 {
     protected $app;
-    public function __construct($app)
+    public $fields;
+    public function __construct($app, $fields = false)
     {
         $this->app = $app;
+        $this->fields = $fields;
     }
 
     public function dataList($contenttype, $items)
@@ -45,21 +47,34 @@ class DataFormatter
     private function cleanItem($item, $type = 'list-fields')
     {
         $contenttype = $item->contenttype['slug'];
+
         if (isset($this->config['contenttypes'][$contenttype][$type])) {
             $fields = $this->config['contenttypes'][$contenttype][$type];
         } else {
             $fields = array_keys($item->contenttype['fields']);
         }
+
         // Always include the ID in the set of fields
         array_unshift($fields, 'id');
         $fields = array_unique($fields);
         $values = array();
+
         foreach ($fields as $key => $field) {
+            if ($this->fields && !in_array($field, $this->fields)) {
+                continue;
+            }
+
             $values[$field] = $item->values[$field];
         }
 
-        // set owner
-        $values['ownerid'] = $item->values['ownerid'];
+
+        // metadata values
+        if (!$this->fields || in_array('ownerid', $this->fields)) {
+            $values['ownerid'] = $item->values['ownerid'];
+        }
+        if (!$this->fields || in_array('datepublish', $this->fields)) {
+            $values['datepublish'] = $item->values['datepublish'];
+        }
 
         // Check if we have image or file fields present. If so, see if we need to
         // use the full URL's for these.
@@ -74,6 +89,7 @@ class DataFormatter
                     );
                 }
                 if ($field['type'] == 'image' && isset($values[$key]) && is_array($this->config['thumbnail'])) {
+                    // dump($this->app['paths']);
                     $values[$key]['thumbnail'] = sprintf(
                         '%s/thumbs/%sx%s/%s',
                         $this->app['paths']['canonical'],

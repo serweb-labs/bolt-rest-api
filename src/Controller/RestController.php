@@ -81,6 +81,9 @@ class RestController implements ControllerProviderInterface
         $ctr->options('/{contenttypeslug}/{slug}', array($this, 'corsResponse'))
             ->bind('contentOptions');
 
+        $ctr->options('/{contenttypeslug}/{slug}/{other}/{more}', array($this, 'corsResponse'))
+            ->bind('contentOptionsx');
+
         return $ctr;
     }
 
@@ -158,9 +161,26 @@ class RestController implements ControllerProviderInterface
             return $this->abort("Page $contenttypeslug not found.", Response::HTTP_NOT_FOUND);
         }
 
+        // get repo
+        $repo = $this->app['storage']->getRepository($contenttypeslug);
+
+
         $request = $this->app['request'];
         $filter = $request->get('filter');
-        $where = $request->get('where');
+        $where = $request->get('where', []);
+        $fields = $request->get('fields', false);
+        $limit = $request->get('limit', false);
+        $deep = $request->get('deep', false);
+        $isSoft = $this->config['delete']['soft'];
+        $softStatus = $this->config['delete']['status'];
+
+
+        // limite fields to:
+        if ($fields) {
+            $fieldsarr = explode(",", $fields);
+        } else {
+            $fieldsarr = false;
+        }
 
         // If the contenttype is 'viewless', don't show the record page.
         if (isset($contenttype['viewless']) && $contenttype['viewless'] === true) {
@@ -172,7 +192,13 @@ class RestController implements ControllerProviderInterface
         $query = $this->app['request']->query;
         // First, get some content
         $page = $query->get($pagerid, $query->get('page', 1));
-        $amount = (!empty($contenttype['listing_records']) ? $contenttype['listing_records'] : $this->app['config']->get('general/listing_records'));
+
+        if (!$limit) {
+            $limit = (!empty($contenttype['listing_records']) ? $contenttype['listing_records'] : $this->app['config']->get('general/listing_records'));
+        }
+
+
+
         $sort = (!empty($contenttype['sort']) ? $contenttype['sort'] : $this->app['config']->get('general/listing_sort'));
         $order = $request->get('order', $sort);
 
@@ -180,18 +206,24 @@ class RestController implements ControllerProviderInterface
         $allow = $this->app['permissions']->isAllowed('contenttype:' . $contenttypeslug . ':edit', $this->config['user']);
 
         if ($allow) {
-            $status = "published";
-        } else {
             $status = "published || draft || held";
+        } else {
+            $status = "published";
         }
 
+        if ($this->config['only_published']) {
+            $status = "published";
+        }
+        
+
         $options = array(
-            'limit' => $amount,
+            'limit' => $limit,
             'order' => $order,
             'page' => $page,
             'paging' => true,
             'status' => $status
         );
+
 
         // options filters in url get parameters
         if ($this->config['params'] === true) {
@@ -206,14 +238,7 @@ class RestController implements ControllerProviderInterface
            
             $options['filter'] = $filter ? $filter : false;
         
-
-            /** "where" paremeter only work in JSON STANDARD format,
-            * Ex. in twig {% setcontent mypages = 'pages' where { datepublish: '>today' } %} in JSON { "datepublish": ">today" }
-            * ever whith double quotes.
-            */
-
-            $getwhere = json_decode($where);
-            $options = ($getwhere) ? array_merge((array) $options, (array) $getwhere) : $options;
+            $options = ($where) ? array_merge((array) $options, (array) $where) : $options;
         }
 
 
@@ -234,12 +259,59 @@ class RestController implements ControllerProviderInterface
             $allopt
         );
 
-        // filter by related (ex. where {related: "book:1"})
+        $ids = [];
+        
+        foreach ($all as $item) {
+            $ids[] = $item['id'];
+        }
 
+        // fetch deep search
+        if ($deep && $options['filter']) {
+            $searchresults = $this->app['storage']->searchContent($options['filter']);
+            $matched = [];
+
+            foreach ($searchresults['results'] as $key => $item) {
+                if (!in_array($contenttype, $item->relation)) {
+                    foreach ($item->relation[$contenttypeslug] as $value) {
+                        if (in_array($value, $ids)) {
+                            continue;
+                        }
+
+                        // get one and push
+                        $query = $options;
+                        $query['id'] = $value;
+                        $query['returnsingle'] = true;
+                        $query['status'] = $options['status'];
+
+                        // unset unused keys
+                        unset(
+                            $query['filter'],
+                            $query['limit'],
+                            $query['page'],
+                            $query['paging'],
+                            $query['order']
+                        );
+
+                        $result = $this->app['storage']->getContent($contenttype['slug'], $query);
+                        
+                        if ($result) {
+                            $matched[] = $result;
+                            $ids[] = $value;
+                        }
+                    }
+                }
+            }
+            $all = array_merge($all, $matched);
+
+            $partial = $this->paginate($all, $options['limit'], $options['page']);
+        }
+
+
+
+        // filter by related (ex. where {related: "book:1,2,3"})
         if (array_key_exists('related', $allopt) && !empty($allopt['related'])) {
             $rel = explode(":", $allopt['related']);
             $relations = explode(",", $rel[1]);
-
             foreach ($partial as $key => $item) {
                 $detect = 0;
                 foreach ($relations as $value) {
@@ -254,23 +326,63 @@ class RestController implements ControllerProviderInterface
             }
         }
 
+        // Exclude those that are related to a certain type of content
+        // (ex. where {norelated: "book"})
+        if (array_key_exists('norelated', $allopt) && !empty($allopt['norelated'])) {
+            $norelated = explode("!", $allopt['norelated']);
+            $ct = $norelated[0];
+            $ignore = $norelated[1];
+
+            foreach ($partial as $key => $item) {
+                if ($item->relation[$ct] != null) {
+                    if (in_array($ignore, $item->relation[$ct])) {
+                        $detect = 1;
+                    } elseif ($isSoft) {
+                        $repo = $this->app['storage']->getRepository($ct);
+                        foreach ($item->relation[$ct] as $relatedId) {
+                            $content = $repo->find($relatedId);
+
+                            if ($content['status'] == $softStatus) {
+                                $detect = 1;
+                            } else {
+                                $detect = 0;
+                                break;
+                            }
+                        }
+                        $content = $repo->find($item->relation[$ct][0]);
+                    } else {
+                        $detect = 0;
+                    }
+                } else {
+                    $detect = 1;
+                }
+                    
+                if ($detect == 0) {
+                    unset($partial[$key]);
+                }
+            }
+        }
+
+
+        $count = count($all);
 
         $headers = array(
-            'X-Total-Count' => count($all),
+            'X-Total-Count' => $count,
             'X-Pagination-Page' => $options['page'],
             'X-Pagination-Limit' => $options['limit'],
             );
 
-        $formatter = new DataFormatter($this->app);
-        $map = $formatter->dataList($options['contenttype'], $partial);
 
+        $formatter = new DataFormatter($this->app, $fieldsarr);
+        $map = $formatter->dataList($options['contenttype'], $partial);
 
 
         $data = array("data" => $map);
 
         return $this->app['rest.response']->response($data, 200, $headers);
     }
- 
+
+
      /**
      * View Content Action in the Rest API controller
      *
@@ -283,6 +395,8 @@ class RestController implements ControllerProviderInterface
     public function readContentAction($contenttypeslug, $slug)
     {
         $contenttype = $this->app['storage']->getContentType($contenttypeslug);
+        $isSoft = $this->config['delete']['soft'];
+        $softStatus = $this->config['delete']['status'];
         
         // Rest best practices: allow only plural version of resource
         if ($contenttype['slug'] !== $contenttypeslug) {
@@ -315,9 +429,28 @@ class RestController implements ControllerProviderInterface
             );
         }
         
+
         // format
         $formatter = new DataFormatter($this->app);
         $map = $formatter->data($content);
+
+        if ($isSoft) {
+            $related = array();
+
+            // soft delete detect
+            foreach ($map['relation'] as $key => $value) {
+                $related[$key] = array();
+                $repo = $this->app['storage']->getRepository($key);
+                foreach ($value as $id) {
+                    $content = $repo->find($id);
+                    if ($content['status'] != $softStatus) {
+                        $related[$key][] = (string)$content['id'];
+                    };
+                }
+            }
+            $map['relation'] = $related;
+        }
+
         $data = array("data" => $map);
 
 
@@ -363,6 +496,12 @@ class RestController implements ControllerProviderInterface
                     case 'checkbox':
                         $requestAll[$key] = 0;
                         break;
+                    case 'float':
+                        $requestAll[$key] = 0;
+                        break;
+                    case 'integer':
+                        $requestAll[$key] = 0;
+                        break;
                 }
             }
         }
@@ -374,36 +513,83 @@ class RestController implements ControllerProviderInterface
             }
         }
 
-        $newStatus = $content['status'];
+        // status
+        $defaultStatus = $contenttype['default_status'] == "publish" ? 'published' : $contenttype['default_status'];
+        $fallbackStatus = $contenttype['default_status'] ? $defaultStatus: 'published';
 
-        // Save the record, and return to the overview screen, or to the record (if we clicked 'save and continue')
-        $status = $this->app['users']->isContentStatusTransitionAllowed($oldStatus, $newStatus, $contenttype['slug'], $id);
+        $beforeStatus = $oldStatus ?: $fallbackStatus;
+
+
+        if (array_key_exists('status', $requestAll)) {
+            $newStatus = $requestAll['status'];
+        } else {
+            $newStatus = $beforeStatus;
+        }
+
+
+        $status = $this->app['users']->isContentStatusTransitionAllowed(
+            $beforeStatus,
+            $newStatus,
+            $contenttype['slug'],
+            $id
+        );
 
         if (!$status) {
             $error["message"] = Trans::__("Error processing the request");
             $this->abort($error, 500);
         }
 
-        // Get the associate record change comment
-        $comment = $request->request->get('changelog-comment');
+        $content->status = $newStatus;
+
+        // datepublish
+        if (array_key_exists('datepublish', $requestAll)) {
+            $datepublishStr = $requestAll['datepublish'];
+            $content->datepublish = new \DateTime($datepublishStr);
+        }
+
+
 
         // set owner id
         $content['ownerid'] = $this->user['id'];
+
+        // slug: When storing, we should never have an empty slug/URI.
+        if (!$content['slug'] || empty($content['slug'])) {
+            $content['slug'] = 'slug-' . md5(mt_rand());
+        }
+
         $content->setDatechanged('now');
+        
         $values = array('relation' => $request->request->get('relation'));
 
-        foreach ($values['relation'] as $key => $value) {
-            if (!is_array($value)) {
-                $bar = $value . "";
-                $values['relation'][$key] = array(trim($bar));
+        if ($values['relation']) {
+            foreach ($values['relation'] as $key => $value) {
+                if (!is_array($value)) {
+                    $bar = $value . "";
+                    $values['relation'][$key] = array(trim($bar));
+                }
             }
+                    
+            $related = $this->app['storage']->createCollection('Bolt\Storage\Entity\Relations');
+            $related->setFromPost($values, $content);
+            $content->setRelation($related);
         }
-        
-        
-        $related = $this->app['storage']->createCollection('Bolt\Storage\Entity\Relations');
-        $related->setFromPost($values, $content);
-        $content->setRelation($related);
-        
+
+
+        // add note if exist
+        $note = $request->request->get('note');
+
+        if ($note && array_key_exists('notes', $contenttype['fields'])) {
+            $notes = json_decode($content['notes'], true);
+            if (!array_key_exists('data', $notes)) {
+                $notes['data'] = array();
+            }
+            $date = new \DateTime('now');
+            $date = $date->format('Y-m-d');
+            $notes['data'][] = array('data' => $note, 'date' =>  $date);
+            $content['notes'] = json_encode($notes);
+        }
+
+
         // save
         $result = $repo->save($content);
 
@@ -420,8 +606,10 @@ class RestController implements ControllerProviderInterface
 
         $location = $this->app['url_generator']->generate(
             'readcontent',
-            array('contenttypeslug' => $contenttypeslug,
-            'slug' => $slug),
+            array(
+                'contenttypeslug' => $contenttypeslug,
+                'slug' => $slug
+                ),
             true
         );
         
@@ -479,7 +667,7 @@ class RestController implements ControllerProviderInterface
     {
         $repo = $this->app['storage']->getRepository($contenttypeslug);
         $content = $repo->find($slug);
-        $oldStatus = $content['status'];
+        $oldStatus = $content->status;
 
         return $this->insertAction($content, $contenttypeslug, $oldStatus, $repo);
     }
@@ -495,12 +683,21 @@ class RestController implements ControllerProviderInterface
 
     public function deleteContentAction($contenttypeslug, $slug)
     {
+        $isSoft = $this->config['delete']['soft'];
+        $status = $this->config['delete']['status'];
+
         $contenttype = $this->app['storage']->getContentType($contenttypeslug);
+        $repo = $this->app['storage']->getRepository($contenttype['slug']);
+        $row = $repo->find($slug);
+        if ($isSoft) {
+            $row->status = $status;
+            $repo->save($row);
+            $result = true;
+        } else {
+            $result = $repo->delete($row);
+        }
 
-        $result = $this->app['storage']->deleteContent($contenttype['slug'], $slug);
-        
         $content = array('action' => $result);
-
         return $this->app['rest.response']->response($content, 204);
     }
 
@@ -530,5 +727,12 @@ class RestController implements ControllerProviderInterface
         } else {
             return "";
         }
+    }
+
+    public function paginate($arr, $limit, $page)
+    {
+        $to = ($limit - 1) * $page;
+        $from = $to - ($limit - 1);
+        return array_slice($arr, $from, $to);
     }
 }

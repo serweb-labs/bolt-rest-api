@@ -17,21 +17,19 @@ class IdentifyService
     private $config;
     public $endpoint;
 
-    public function __construct(Application $app, $config)
-    {
+    function __construct (Application $app, $config) {
         $this->app = $app;
         $this->config = $config;
         $this->endpoint = $config['endpoints']['rest'];
     }
 
-    public function getConfig()
-    {
+    public function getConfig() {
         return $this->config;
     }
 
     public function getUsername()
     {
-        foreach ($this->config['security']['providers'] as $provider) {
+        foreach ($this->config['security']['providers'] as $provider) {          
             $name = ucfirst($provider) . "AuthenticationService";
             $result = $this->app[$name]->autenticate();
             if ($result['result'] === true) {

@@ -57,6 +57,7 @@ class AuthenticateController implements ControllerProviderInterface
             ->bind('corsRestLogin');
 
         return $ctr;
+
     }
 
     /**
@@ -76,6 +77,7 @@ class AuthenticateController implements ControllerProviderInterface
         $event = new AccessControlEvent($request);
 
         try {
+
             if (empty($username) || empty($password)) {
                 throw new \Exception('Username does not exist.');
             }

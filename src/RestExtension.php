@@ -48,29 +48,30 @@ class RestExtension extends SimpleExtension
         $config = $this->getConfig();
         foreach ($config['security']['providers'] as $provider) {
             $name = ucfirst($provider) . "AuthenticationService";
-            $cl = "Bolt\Extension\SerWeb\Rest\Services\\" . $name;
+            $cl = "Bolt\Extension\SerWeb\Rest\Services\\" . $name; 
 
             $app[$name] = $app->share(
                 function ($app) use ($config, $cl) {
                     return new $cl($config, $app);
                 }
             );
-        }
+
+        } 
 
         $app['rest'] = $app->share(
-            function ($app) use ($config) {
-                $id = 'Bolt\Extension\SerWeb\Rest\Services\IdentifyService';
-                return new $id($app, $config);
-            }
-        );
+                    function ($app) use ($config) {
+                        $id = 'Bolt\Extension\SerWeb\Rest\Services\IdentifyService';
+                        return new $id($app, $config);
+                    }
+                );
 
         $app['rest.response'] = $app->share(
-            function ($app) use ($config) {
-                $service = 'Bolt\Extension\SerWeb\Rest\Services\RestResponseService';
-                return new $service($app, $config);
-            }
-        );
-        
+                    function ($app) use ($config) {
+                        $service = 'Bolt\Extension\SerWeb\Rest\Services\RestResponseService';
+                        return new $service($app, $config);
+                    }
+                );
+
         $app->register(new SerializerServiceProvider());
     }
 }
