@@ -81,9 +81,6 @@ class RestController implements ControllerProviderInterface
         $ctr->options('/{contenttypeslug}/{slug}', array($this, 'corsResponse'))
             ->bind('contentOptions');
 
-        $ctr->options('/{contenttypeslug}/{slug}/{other}/{more}', array($this, 'corsResponse'))
-            ->bind('contentOptionsx');
-
         return $ctr;
     }
 
@@ -196,8 +193,6 @@ class RestController implements ControllerProviderInterface
         if (!$limit) {
             $limit = (!empty($contenttype['listing_records']) ? $contenttype['listing_records'] : $this->app['config']->get('general/listing_records'));
         }
-
-
 
         $sort = (!empty($contenttype['sort']) ? $contenttype['sort'] : $this->app['config']->get('general/listing_sort'));
         $order = $request->get('order', $sort);
@@ -363,7 +358,7 @@ class RestController implements ControllerProviderInterface
             }
         }
 
-
+        // pagination
         $count = count($all);
 
         $headers = array(
@@ -463,6 +458,7 @@ class RestController implements ControllerProviderInterface
      * @param content $content
      * @param string $contenttypeslug
      * @param string $oldStatus
+     * @param repository $repo
      *
      * @return response
      */
@@ -496,6 +492,8 @@ class RestController implements ControllerProviderInterface
                     case 'checkbox':
                         $requestAll[$key] = 0;
                         break;
+                    // default values prevent
+                    // sql errors
                     case 'float':
                         $requestAll[$key] = 0;
                         break;
@@ -526,7 +524,6 @@ class RestController implements ControllerProviderInterface
             $newStatus = $beforeStatus;
         }
 
-
         $status = $this->app['users']->isContentStatusTransitionAllowed(
             $beforeStatus,
             $newStatus,
@@ -546,8 +543,6 @@ class RestController implements ControllerProviderInterface
             $datepublishStr = $requestAll['datepublish'];
             $content->datepublish = new \DateTime($datepublishStr);
         }
-
-
 
         // set owner id
         $content['ownerid'] = $this->user['id'];
@@ -631,7 +626,7 @@ class RestController implements ControllerProviderInterface
     /**
      * Add Content Action in the Rest API controller
      *
-     * @param string    $contenttypeslug The content type slug
+     * @param string  $contenttypeslug The content type slug
      *
      * @return insertAction
      */
@@ -689,6 +684,7 @@ class RestController implements ControllerProviderInterface
         $contenttype = $this->app['storage']->getContentType($contenttypeslug);
         $repo = $this->app['storage']->getRepository($contenttype['slug']);
         $row = $repo->find($slug);
+
         if ($isSoft) {
             $row->status = $status;
             $repo->save($row);
@@ -701,6 +697,11 @@ class RestController implements ControllerProviderInterface
         return $this->app['rest.response']->response($content, 204);
     }
 
+    /**
+     * CORS: cross origin resourse sharing handler
+     *
+     * @return response
+     */
     public function corsResponse()
     {
         if ($this->config["cors"]['enabled']) {
@@ -729,6 +730,11 @@ class RestController implements ControllerProviderInterface
         }
     }
 
+    /**
+     * Pagination helper
+     *
+     * @return response
+     */
     public function paginate($arr, $limit, $page)
     {
         $to = ($limit - 1) * $page;
