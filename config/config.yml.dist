@@ -9,7 +9,7 @@ security:
     jwt:
         secret: IamASecretKeyChangeMePlease
         prefix: Bearer
-        lifetime: 3600
+        lifetime: 36000
         user_param: username
         pass_param: password
         request_header_name: Authorization
@@ -20,6 +20,13 @@ security:
 cors:
     enabled: true
     allow-origin: '*'
+
+# cross-origin resourse sharing
+delete:
+    soft: true
+    status: 'draft'
+
+only_published: true
 
 # media types in request and responses
 media:
