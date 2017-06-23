@@ -3,7 +3,7 @@ Rest Api for Bolt
 #### Build awesome extensions and powerfull webapps.
 
  - ¡Working!
- - Use Rest with JWT (json web token) 
+ - Use Rest with JWT (json web token)
  - Create, update, index and retrieve content in json, xml, and more.
  - Extensible (soon documentation!)
 
@@ -39,14 +39,14 @@ when deep is enabled, the relationships be treated as one more field of content,
 	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/pages?filter=john&deep=1"
 
 ###### "related" param
-refine your result according the related content 
+refine your result according the related content
 
 	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/pages&related=clients:5,10"
 
 ###### "norelated" param
 exclude from the results content that is related to certain content type
 
-	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/review?norelated=report"
+	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/review?norelated=report!1"
 
 ###### "fields" param
 limit the format of the result to the fields in the parameter
@@ -71,7 +71,7 @@ pagination: return specific page
 	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/review?page=2"
 
 ###### Use the response headers as pagination helpers
-	'X-Total-Count' // total 
+	'X-Total-Count' // total
 	'X-Pagination-Page' // actual page
 	'X-Pagination-Limit' // limit by page
 
@@ -93,7 +93,7 @@ ___
 ___
 #### Delete content:  USE DELETE REQUEST for delete a content
 If all goes well, the response should be a "204, not content"
-	
+
 	curl -X DELETE -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/pages/1"
 ___
 
