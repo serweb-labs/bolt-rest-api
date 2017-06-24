@@ -49,7 +49,7 @@ class RestController implements ControllerProviderInterface
 
         /** @var $ctr \Silex\ControllerCollection */
         $ctr = $this->app['controllers_factory'];
-        
+
         $ctr->get('/{contenttypeslug}', array($this, 'readMultipleContentAction'))
             ->value('action', 'view')
             ->bind('readmultiplecontent')
@@ -114,7 +114,7 @@ class RestController implements ControllerProviderInterface
             $error = Trans::__("You don't have the correct permissions");
             return $this->abort($error, Response::HTTP_FORBIDDEN);
         }
-        
+
         // Get expected content type
         $mime = $request->headers->get('Content-Type');
 
@@ -152,7 +152,7 @@ class RestController implements ControllerProviderInterface
     public function readMultipleContentAction($contenttypeslug)
     {
         $contenttype = $this->app['storage']->getContentType($contenttypeslug);
-        
+
         // Rest best practices: allow only plural version of resource
         if ($contenttype['slug'] !== $contenttypeslug) {
             return $this->abort("Page $contenttypeslug not found.", Response::HTTP_NOT_FOUND);
@@ -168,6 +168,8 @@ class RestController implements ControllerProviderInterface
         $fields = $request->get('fields', false);
         $limit = $request->get('limit', false);
         $deep = $request->get('deep', false);
+        $related    = $request->get( 'related', false);
+		$norelated    = $request->get( 'norelated', false);
         $isSoft = $this->config['delete']['soft'];
         $softStatus = $this->config['delete']['status'];
 
@@ -183,7 +185,7 @@ class RestController implements ControllerProviderInterface
         if (isset($contenttype['viewless']) && $contenttype['viewless'] === true) {
             return $this->abort("Page $contenttypeslug not found.", Response::HTTP_NOT_FOUND);
         }
-                
+
         $pagerid = Pager::makeParameterId($contenttypeslug);
         /* @var $query \Symfony\Component\HttpFoundation\ParameterBag */
         $query = $this->app['request']->query;
@@ -209,14 +211,17 @@ class RestController implements ControllerProviderInterface
         if ($this->config['only_published']) {
             $status = "published";
         }
-        
+
 
         $options = array(
             'limit' => $limit,
             'order' => $order,
             'page' => $page,
             'paging' => true,
-            'status' => $status
+            'status' => $status,
+            'contenttype' => $contenttype,
+            'related' => $related,
+			'norelated' => $norelated,
         );
 
 
@@ -230,9 +235,9 @@ class RestController implements ControllerProviderInterface
             } else {
                 $options['order'] = $this->app['config']->get('general/listing_sort');
             }
-           
+
             $options['filter'] = $filter ? $filter : false;
-        
+
             $options = ($where) ? array_merge((array) $options, (array) $where) : $options;
         }
 
@@ -255,7 +260,7 @@ class RestController implements ControllerProviderInterface
         );
 
         $ids = [];
-        
+
         foreach ($all as $item) {
             $ids[] = $item['id'];
         }
@@ -288,7 +293,7 @@ class RestController implements ControllerProviderInterface
                         );
 
                         $result = $this->app['storage']->getContent($contenttype['slug'], $query);
-                        
+
                         if ($result) {
                             $matched[] = $result;
                             $ids[] = $value;
@@ -308,14 +313,14 @@ class RestController implements ControllerProviderInterface
             $rel = explode(":", $allopt['related']);
             $relations = explode(",", $rel[1]);
             foreach ($partial as $key => $item) {
-                $detect = 0;
+                $detect = false;
                 foreach ($relations as $value) {
                     if (in_array($value, $item->relation[$rel[0]])) {
-                        $detect = 1;
+                        $detect = true;
                     }
                 }
 
-                if ($detect == 0) {
+                if ($detect) {
                     unset($partial[$key]);
                 }
             }
@@ -331,28 +336,28 @@ class RestController implements ControllerProviderInterface
             foreach ($partial as $key => $item) {
                 if ($item->relation[$ct] != null) {
                     if (in_array($ignore, $item->relation[$ct])) {
-                        $detect = 1;
+                        $detect = true;
                     } elseif ($isSoft) {
                         $repo = $this->app['storage']->getRepository($ct);
                         foreach ($item->relation[$ct] as $relatedId) {
                             $content = $repo->find($relatedId);
 
                             if ($content['status'] == $softStatus) {
-                                $detect = 1;
+                                $detect = true;
                             } else {
-                                $detect = 0;
+                                $detect = false;
                                 break;
                             }
                         }
                         $content = $repo->find($item->relation[$ct][0]);
                     } else {
-                        $detect = 0;
+                        $detect = false;
                     }
                 } else {
-                    $detect = 1;
+                    $detect = true;
                 }
-                    
-                if ($detect == 0) {
+
+                if ($detect) {
                     unset($partial[$key]);
                 }
             }
@@ -392,7 +397,7 @@ class RestController implements ControllerProviderInterface
         $contenttype = $this->app['storage']->getContentType($contenttypeslug);
         $isSoft = $this->config['delete']['soft'];
         $softStatus = $this->config['delete']['status'];
-        
+
         // Rest best practices: allow only plural version of resource
         if ($contenttype['slug'] !== $contenttypeslug) {
             return $this->abort("Page $contenttypeslug not found.", Response::HTTP_NOT_FOUND);
@@ -423,7 +428,7 @@ class RestController implements ControllerProviderInterface
                 Response::HTTP_NOT_FOUND
             );
         }
-        
+
 
         // format
         $formatter = new DataFormatter($this->app);
@@ -473,7 +478,7 @@ class RestController implements ControllerProviderInterface
         // http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
         // Also do some corrections
         $requestAll = $request->request->all();
-        
+
         foreach ($contenttype['fields'] as $key => $values) {
             if (isset($requestAll[$key])) {
                 switch ($values['type']) {
@@ -553,7 +558,7 @@ class RestController implements ControllerProviderInterface
         }
 
         $content->setDatechanged('now');
-        
+
         $values = array('relation' => $request->request->get('relation'));
 
         if ($values['relation']) {
@@ -563,7 +568,7 @@ class RestController implements ControllerProviderInterface
                     $values['relation'][$key] = array(trim($bar));
                 }
             }
-                    
+
             $related = $this->app['storage']->createCollection('Bolt\Storage\Entity\Relations');
             $related->setFromPost($values, $content);
             $content->setRelation($related);
@@ -607,7 +612,7 @@ class RestController implements ControllerProviderInterface
                 ),
             true
         );
-        
+
 
         // Defalt headers
         $headers = array();
