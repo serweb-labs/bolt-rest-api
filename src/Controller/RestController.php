@@ -315,12 +315,14 @@ class RestController implements ControllerProviderInterface
             foreach ($partial as $key => $item) {
                 $detect = false;
                 foreach ($relations as $value) {
-                    if (in_array($value, $item->relation[$rel[0]])) {
-                        $detect = true;
+                    if(is_array($item->relation[ $rel[0] ])) {
+                        if (in_array($value, $item->relation[$rel[0]])) {
+                            $detect = true;
+                        }
                     }
                 }
 
-                if ($detect) {
+                if (!$detect) {
                     unset($partial[$key]);
                 }
             }
