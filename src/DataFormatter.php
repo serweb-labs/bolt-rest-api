@@ -9,6 +9,8 @@ namespace Bolt\Extension\SerWeb\Rest;
  *
  */
 
+use Symfony\Component\Debug\Exception\ContextErrorException;
+
 class DataFormatter
 {
     protected $app;
@@ -46,7 +48,11 @@ class DataFormatter
 
     private function cleanItem($item, $type = 'list-fields')
     {
-        $contenttype = $item->contenttype['slug'];
+        try {
+            $contenttype = $item->contenttype['slug'];
+        } catch(ContextErrorException $ex) {
+			return;
+		}
 
         if (isset($this->config['contenttypes'][$contenttype][$type])) {
             $fields = $this->config['contenttypes'][$contenttype][$type];

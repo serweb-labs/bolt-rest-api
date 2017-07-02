@@ -242,10 +242,10 @@ class RestController implements ControllerProviderInterface
         }
 
 
-        $partial = $this->app['storage']->getContent(
+        $partial = $this->toArray($this->app['storage']->getContent(
             $contenttype['slug'],
             $options
-        );
+        ));
 
         // get total count
         $allopt = $options;
@@ -254,15 +254,17 @@ class RestController implements ControllerProviderInterface
         $allopt['paging'] = false;
 
         // fetch all
-        $all = $this->app['storage']->getContent(
+        $all = $this->toArray($this->app['storage']->getContent(
             $contenttype['slug'],
             $allopt
-        );
+        ));
 
         $ids = [];
 
         foreach ($all as $item) {
-            $ids[] = $item['id'];
+            if(isset($item['id'])) {
+                $ids[] = $item['id'];
+            }
         }
 
         // fetch deep search
@@ -315,12 +317,14 @@ class RestController implements ControllerProviderInterface
             foreach ($partial as $key => $item) {
                 $detect = false;
                 foreach ($relations as $value) {
-                    if (in_array($value, $item->relation[$rel[0]])) {
-                        $detect = true;
+                    if(is_array($item->relation[$rel[0]])) {
+                        if (in_array($value, $item->relation[$rel[0]])) {
+                            $detect = true;
+                        }
                     }
                 }
 
-                if ($detect) {
+                if (!$detect) {
                     unset($partial[$key]);
                 }
             }
@@ -746,4 +750,13 @@ class RestController implements ControllerProviderInterface
         $from = $to - ($limit - 1);
         return array_slice($arr, $from, $to);
     }
+
+    private function toArray($el)
+	{
+		if(!is_array($el)) {
+			return [$el];
+		}
+
+		return $el;
+	}
 }
