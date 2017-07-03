@@ -44,9 +44,9 @@ refine your result according the related content
 	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/pages&related=clients:5,10"
 
 ###### "norelated" param
-exclude from the results content that is related to certain content type
+exclude from the results content that is related to certain content type, except for the values separated by commas to the right of the "!"
 
-	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/review?norelated=report!1"
+	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/review?norelated=report!1,10"
 
 ###### "fields" param
 limit the format of the result to the fields in the parameter

@@ -168,8 +168,8 @@ class RestController implements ControllerProviderInterface
         $fields = $request->get('fields', false);
         $limit = $request->get('limit', false);
         $deep = $request->get('deep', false);
-        $related    = $request->get( 'related', false);
-		$norelated    = $request->get( 'norelated', false);
+        $related    = $request->get('related', false);
+        $norelated    = $request->get('norelated', false);
         $isSoft = $this->config['delete']['soft'];
         $softStatus = $this->config['delete']['status'];
 
@@ -221,7 +221,7 @@ class RestController implements ControllerProviderInterface
             'status' => $status,
             'contenttype' => $contenttype,
             'related' => $related,
-			'norelated' => $norelated,
+            'norelated' => $norelated,
         );
 
 
@@ -262,7 +262,7 @@ class RestController implements ControllerProviderInterface
         $ids = [];
 
         foreach ($all as $item) {
-            if(isset($item['id'])) {
+            if (isset($item['id'])) {
                 $ids[] = $item['id'];
             }
         }
@@ -317,7 +317,7 @@ class RestController implements ControllerProviderInterface
             foreach ($partial as $key => $item) {
                 $detect = false;
                 foreach ($relations as $value) {
-                    if(is_array($item->relation[$rel[0]])) {
+                    if (is_array($item->relation[$rel[0]])) {
                         if (in_array($value, $item->relation[$rel[0]])) {
                             $detect = true;
                         }
@@ -335,11 +335,10 @@ class RestController implements ControllerProviderInterface
         if (array_key_exists('norelated', $allopt) && !empty($allopt['norelated'])) {
             $norelated = explode("!", $allopt['norelated']);
             $ct = $norelated[0];
-            $ignore = $norelated[1];
-
+            $ignore = preg_split('/,/', $norelated[1], null, PREG_SPLIT_NO_EMPTY);
             foreach ($partial as $key => $item) {
                 if ($item->relation[$ct] != null) {
-                    if (in_array($ignore, $item->relation[$ct])) {
+                    if ($this->intersect($ignore, $item->relation[$ct])) {
                         $detect = true;
                     } elseif ($isSoft) {
                         $repo = $this->app['storage']->getRepository($ct);
@@ -361,7 +360,7 @@ class RestController implements ControllerProviderInterface
                     $detect = true;
                 }
 
-                if ($detect) {
+                if (!$detect) {
                     unset($partial[$key]);
                 }
             }
@@ -752,11 +751,23 @@ class RestController implements ControllerProviderInterface
     }
 
     private function toArray($el)
-	{
-		if(!is_array($el)) {
-			return [$el];
-		}
+    {
+        if (!is_array($el)) {
+            return [$el];
+        }
 
-		return $el;
-	}
+        return $el;
+    }
+
+    private function intersect($array1, $array2)
+    {
+        $result = array_intersect($array1, $array2);
+        $q = count($result);
+
+        if ($q > 0) {
+            return true;
+        }
+        
+        return false;
+    }
 }
