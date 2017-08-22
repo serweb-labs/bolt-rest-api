@@ -11,6 +11,13 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Silex\Application;
 use Silex\Provider\SerializerServiceProvider;
+use Bolt\Storage\Query\ContentQueryParser;
+use Bolt\Extension\SerWeb\Rest\Directives\RelatedDirective;
+use Bolt\Extension\SerWeb\Rest\Directives\UnrelatedDirective;
+use Bolt\Extension\SerWeb\Rest\Directives\PaginationDirective;
+use Bolt\Extension\SerWeb\Rest\Directives\CountDirective;
+use Bolt\Extension\SerWeb\Rest\Directives\FilterDirective;
+use Bolt\Extension\SerWeb\Rest\Services\Vendors\JsonApi;
 
 /**
  * Rest extension class.
@@ -46,31 +53,51 @@ class RestExtension extends SimpleExtension
     protected function registerServices(Application $app)
     {
         $config = $this->getConfig();
+
+        $app['query.parser'] = $app->share(
+            $app->extend('query.parser', function (ContentQueryParser $parser) {
+                return $parser;
+            })
+        );
+
+        $app['query.parser']->addDirectiveHandler('pagination', new PaginationDirective());
+        $app['query.parser']->addDirectiveHandler('related', new RelatedDirective());
+        $app['query.parser']->addDirectiveHandler('unrelated', new UnrelatedDirective());
+        $app['query.parser']->addDirectiveHandler('filter', new FilterDirective());
+        $app['query.parser']->addDirectiveHandler('count', new CountDirective());
+
         foreach ($config['security']['providers'] as $provider) {
             $name = ucfirst($provider) . "AuthenticationService";
-            $cl = "Bolt\Extension\SerWeb\Rest\Services\\" . $name; 
+            $cl = "Bolt\Extension\SerWeb\Rest\Services\\" . $name;
 
             $app[$name] = $app->share(
                 function ($app) use ($config, $cl) {
                     return new $cl($config, $app);
                 }
             );
-
-        } 
+        }
 
         $app['rest'] = $app->share(
-                    function ($app) use ($config) {
-                        $id = 'Bolt\Extension\SerWeb\Rest\Services\IdentifyService';
-                        return new $id($app, $config);
-                    }
-                );
+            function ($app) use ($config) {
+                $id = 'Bolt\Extension\SerWeb\Rest\Services\IdentifyService';
+                return new $id($app, $config);
+            }
+        );
 
         $app['rest.response'] = $app->share(
-                    function ($app) use ($config) {
-                        $service = 'Bolt\Extension\SerWeb\Rest\Services\RestResponseService';
-                        return new $service($app, $config);
-                    }
-                );
+            function ($app) use ($config) {
+                $service = 'Bolt\Extension\SerWeb\Rest\Services\RestResponseService';
+                return new $service($app, $config);
+            }
+        );
+
+        /* vendors */
+        $app['rest.jsonApi'] = $app->share(
+            function ($app) use ($config) {
+                return new JsonApi($app, $config);
+            }
+        );
+
 
         $app->register(new SerializerServiceProvider());
     }
