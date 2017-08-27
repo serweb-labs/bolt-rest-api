@@ -200,7 +200,7 @@ class RestController implements ControllerProviderInterface
         $order = $request->get('order', $sort);
 
         // If is allowed show unpublished and drafted content
-        $allow = $this->app['permissions']->isAllowed('contenttype:' . $contenttypeslug . ':edit', $this->config['user']);
+        $allow = $this->app['permissions']->isAllowed('contenttype:' . $contenttypeslug . ':edit', $this->user);
 
         if ($allow) {
             $status = "published || draft || held";
