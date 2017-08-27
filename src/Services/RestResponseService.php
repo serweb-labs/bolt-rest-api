@@ -34,17 +34,17 @@ class RestResponseService
 
     /**
      * Detect "Accept" head and proccess
-     * 
-     * @param array $data 
-     * @param int $code 
-     * @param array $headers 
-     * 
+     *
+     * @param array $data
+     * @param int $code
+     * @param array $headers
+     *
      * @return $this->$method|Symfony\Component\HttpFoundation\Response;
      */
-    public function response($data, $code, $headers = array())
+    public function response($data, $code, $headers = array(), $envelope = false)
     {
-        $default = 'application/json';        
-        $media = $this->app['request']->headers->get('Accept', $default);       
+        $default = 'application/json';
+        $media = $this->app['request']->headers->get('Accept', $default);
         
         $utilFragment = explode(";", $media);
         $acceptList = explode(",", $utilFragment[0]);
@@ -58,7 +58,7 @@ class RestResponseService
             $exist = method_exists($this, $method);
 
             if ($exist) {
-                return $this->$method($data, $code, $headers);
+                return $this->$method($data, $code, $headers, $envelope);
             }
         }
 
@@ -68,65 +68,37 @@ class RestResponseService
 
     /**
      * Process Json Response in Rest API controller
-     * 
-     * @param array $data 
-     * @param int $code 
-     * @param array $headers 
-     * 
+     *
+     * @param array $data
+     * @param int $code
+     * @param array $headers
+     *
      * @return Symfony\Component\HttpFoundation\Response;
      */
-    public function applicationJsonResponse($data, $code, $headers = array())
+    public function applicationJsonResponse($data, $code, $headers = array(), $envelope = false)
     {
-        $array = $data;
+        if ($this->config["cors"]['enabled']) {
+            $headers['Access-Control-Allow-Origin'] = $this->config["cors"]["allow-origin"];
+            $headers['Access-Control-Expose-Headers'] = 'X-Pagination-Limit, X-Pagination-Page, X-Total-Count';
+        };
+
+        $headers['Content-Type'] = 'application/json; charset=UTF-8';
+
+        $response = new Response("{}", $code, $headers);
+
+        if ($envelope) {
+            $array = array('headers' =>  $headers, 'response' => $data);
+        } else {
+            $array = $data;
+        }
 
         $json = json_encode(
             $array,
             JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRETTY_PRINT
         );
 
-        $response = new Response($json, $code, $headers);
-        $response->headers->set('Content-Type', 'application/json; charset=UTF-8');
-
-        if ($this->config["cors"]['enabled']) {
-            $response->headers->set(
-                'Access-Control-Allow-Origin',
-                $this->config["cors"]["allow-origin"]
-            );
-            $response->headers->set(
-                'Access-Control-Expose-Headers',
-                'X-Pagination-Limit, X-Pagination-Page, X-Total-Count'
-            );
-
-        };
-
+        $response->setContent($json);
+        
         return $response;
     }
-
-    public function applicationXMLResponse($data, $code, $headers = array()) {
-
-        function to_xml(\SimpleXMLElement $object, array $data)
-        {   
-            foreach ($data as $key => $value) {
-                if (is_array($value)) {
-                    if (is_numeric($key)) {
-                        $key = 'record';
-                    }
-                    $new_object = $object->addChild($key);
-                    to_xml($new_object, $value);
-                } else {
-                    if (is_numeric($key)) {
-                        $key = 'value';
-                    }  
-                    $object->addChild($key, $value);
-                }   
-            }   
-        }   
-
-        $xml = new \SimpleXMLElement('<?xml version="1.0"?><data></data>');
-        to_xml($xml, $data);
-        $result = $xml->asXML();
-        $response = new Response($result);
-        $response->headers->set('Content-Type', 'xml');
-        return $response;
-    }  
 }
