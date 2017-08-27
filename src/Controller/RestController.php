@@ -313,7 +313,13 @@ class RestController implements ControllerProviderInterface
         // filter by related (ex. where {related: "book:1,2,3"})
         if (array_key_exists('related', $allopt) && !empty($allopt['related'])) {
             $rel = explode(":", $allopt['related']);
-            $relations = explode(",", $rel[1]);
+
+            $relations = [];
+
+            if (count($rel) > 1) {
+                $relations =  preg_split('/,/', $rel[1], null, PREG_SPLIT_NO_EMPTY);
+            }
+
             foreach ($partial as $key => $item) {
                 $detect = false;
                 foreach ($relations as $value) {
@@ -332,10 +338,16 @@ class RestController implements ControllerProviderInterface
 
         // Exclude those that are related to a certain type of content
         // (ex. where {norelated: "book"})
-        if (array_key_exists('norelated', $allopt) && !empty($allopt['norelated'])) {
-            $norelated = explode("!", $allopt['norelated']);
+        if (array_key_exists('norelated', $allopt) && !empty($allopt['norelated'])) {          
+            $norelated = preg_split('/!/', $allopt['norelated'], null, PREG_SPLIT_NO_EMPTY);
             $ct = $norelated[0];
-            $ignore = preg_split('/,/', $norelated[1], null, PREG_SPLIT_NO_EMPTY);
+
+            $ignore = [];
+
+            if (count($norelated) > 1) {
+                $ignore = preg_split('/,/', $norelated[1], null, PREG_SPLIT_NO_EMPTY);
+            }
+
             foreach ($partial as $key => $item) {
                 if ($item->relation[$ct] != null) {
                     if ($this->intersect($ignore, $item->relation[$ct])) {
