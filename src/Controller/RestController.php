@@ -128,6 +128,10 @@ class RestController implements ControllerProviderInterface
                 "limit" => $this->getDefaultLimit(),
                 "page" => 1,
                 "sort" => $this->getDefaultSort(),
+            ),
+            "thumbnail" => array(
+                "width" => 500,
+                "height" => 500,
             )
         );
         return ($config) ? array_merge((array) $default, (array) $config) : $default;
