@@ -14,7 +14,7 @@ class CountDirective
      * @param int            $related
      */
     public function __invoke(QueryInterface $query, $count)
-    {
+    {   
         $count->get = function () use ($query) {
             $queryCount = clone $query->getQueryBuilder();
             $queryCount

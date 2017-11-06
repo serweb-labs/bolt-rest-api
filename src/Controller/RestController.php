@@ -54,14 +54,19 @@ class RestController implements ControllerProviderInterface
         /** @var $ctr \Silex\ControllerCollection */
         $ctr = $this->app['controllers_factory'];
 
-        $ctr->get('/{contenttype}', array($this, 'listContent'))
+        $ctr->get('/{contenttype}', array($this, 'listContentAction'))
             ->value('action', 'view')
             ->bind('rest.listContent')
             ->before(array($this, 'before'));
 
-        $ctr->get('/{contenttype}/{slug}', array($this, 'getContent'))
+        $ctr->get('/{contenttype}/{slug}', array($this, 'getContentAction'))
             ->value('action', 'view')
             ->bind('rest.getContent')
+            ->before(array($this, 'before'));
+            
+        $ctr->get('/{contenttype}/{slug}/{relatedct}', array($this, 'relatedContentAction'))
+            ->value('action', 'view')        
+            ->bind('rest.relatedcontent')
             ->before(array($this, 'before'));
 
         $ctr->post('/{contenttype}', array($this, 'createContentAction'))
@@ -84,7 +89,9 @@ class RestController implements ControllerProviderInterface
 
         $ctr->options('/{contenttype}/{slug}', array($this, 'corsResponse'))
             ->bind('rest.getContent.options');
-
+        
+        $ctr->options('/{contenttype}/{slug}/{ct}', array($this, 'corsResponse'))
+            ->bind('rest.relatedContent.options');
         return $ctr;
     }
  
@@ -121,7 +128,12 @@ class RestController implements ControllerProviderInterface
                 "related" => false,
                 "unrelated" => false,
                 "contain" => false,
-                "deep" => false,
+                "deep" => false
+            ),
+            "default-postfilter" => array(
+                "related" => false,
+                "unrelated" => false,
+                "deep" => false
             ),
             "default-options" => array(
                 "count" => true,
@@ -144,6 +156,8 @@ class RestController implements ControllerProviderInterface
         $slug = $request->get("slug") ? ":" . $request->get("slug") : "";
         $action = $request->get("action");
         $what = "contenttype:{$contenttype}:{$action}{$slug}";
+        //dump($this->user);
+        //echo $what; exit;
         return $this->app['permissions']->isAllowed($what, $this->user);
     }
 
@@ -207,11 +221,32 @@ class RestController implements ControllerProviderInterface
      * @return abort|response
      */
 
-    public function listContent(Request $request)
+    public function listContentAction(Request $request)
     {
         return $this->app["rest.{$this->vendor}"]->listContent($request, $this->config);
     }
 
+
+    public function getContentAction($contenttype, $slug)
+    {
+        return $this->app["rest.{$this->vendor}"]->readContent($contenttype, $slug, $this->config);
+    }
+
+    public function updateContentAction($contenttype, $slug)
+    { 
+        return $this->app["rest.{$this->vendor}"]->updateContent($contenttype, $slug);
+    }
+    
+    public function createContentAction($contenttype)
+    { 
+        return $this->app["rest.{$this->vendor}"]->createContent($contenttype);
+    }
+    
+
+    public function relatedContentAction($contenttype, $slug, $relatedct, Request $request)
+    {
+        return $this->app["rest.{$this->vendor}"]->relatedContent($contenttype, $slug, $relatedct, $request, $this->config);
+    }
 
 
     /**

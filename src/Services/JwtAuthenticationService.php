@@ -31,11 +31,10 @@ class JwtAuthenticationService
 
         // GET Token
         $jwt = $this->app['request']->headers->get($cfg['request_header_name']);
-
         if (strpos($jwt, $cfg['prefix'] . " ") !== false) {
             $final = str_replace($cfg['prefix'] . " ", "", $jwt);
         }
-
+        
         // Validate Token
         try {
             $data = JWT::decode($final, $cfg['secret'], array($cfg['algoritm']));

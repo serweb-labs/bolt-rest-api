@@ -4,31 +4,37 @@ namespace Bolt\Extension\SerWeb\Rest;
 /**
  * DataFormatter library for content.
  *
- * @author Tobias Dammers <tobias@twokings.nl>
  * @author Luciano Rodriguez <info@serweb.com.ar>
  *
  */
 
 use Symfony\Component\Debug\Exception\ContextErrorException;
+use Carbon\Carbon;
 
 class DataFormatter
 {
     protected $app;
-    public $fields;
-    public $status;
-    public $include;
-    private $cache;
+    private $config;
+    private $params;
+    private $fields;
+    private $status;
+    private $include;
+    private $includesStack;
     private $queryCache;
+    private $cache;
+    public $count;
 
-
-    public function __construct($app, $config, $fields = false, $status = "published", $include = [])
+    public function __construct($app, $config, $params = array())
     {
         $this->app = $app;
         $this->config = $config;
-        $this->fields = $fields;
-        $this->status = $status;
-        $this->include = $include;
-        $this->includes = [];
+        $this->params = $params;
+        $this->fields = empty($params['fields']) ? false : $params['fields'];
+        $this->status = empty($params['query']['status']) ? "published" : $params['query']['status'];
+        $this->include = empty($params['include']) ? [] : $params['include'];
+        $this->includesStack = [];
+        $this->queryCache = [];
+        $this->cache = [];
     }
 
     public function list($contenttype, $items)
@@ -45,31 +51,31 @@ class DataFormatter
             $all[] = $this->one($item);
         }
 
-
         return array(
-            'links' => array(
-                'self' => '',
-                'next' => '',
-                'last' => ''
-                ),
-             'meta' => array(),
+            'links' => $this->getLinksList(),
+            'meta' => array(
+                 'count' => (Int) $this->count,
+                 'page' => (Int) $this->params['pagination']->page,
+                 'limit' => (Int) $this->params['pagination']->limit
+
+             ),
              'data' => $all,
-             'included' => $this->includesToArray($this->includes)
+             'included' => $this->includesToArray($this->includesStack)
              );
     }
 
-    private function one($item, $deep = true, $child = false)
+    public function one($item, $deep = true, $child = false)
     {
         $contenttype = $item->contenttype['slug'];
 
         //  allowed fields
-        if ($this->fields[$contenttype]) {
+        if (isset($this->fields[$contenttype])) {
             $allowedFields = explode(",", $this->fields[$contenttype]);
         } else {
             $allowedFields = false;
         }
 
-        $fields = array_keys($contenttype['fields']);
+        $fields = array_keys($item->contenttype['fields']);
         
         // Always include the ID in the set of fields
         array_unshift($fields, 'id');
@@ -78,7 +84,7 @@ class DataFormatter
         $values = array();
 
         foreach ($fields as $field => $value) {
-            if ($allowedFields && !in_array($key, $allowedFields)) {
+            if ($allowedFields && !in_array($field, $allowedFields)) {
                 continue;
             }
             $values[$field] = $item->{$field};
@@ -88,31 +94,41 @@ class DataFormatter
         if (!$allowedFields || in_array('ownerid', $allowedFields)) {
             $values['ownerid'] = $item->ownerid;
         }
-        if (!$allowedFields|| in_array('datepublish', $allowedFields)) {
-            $values['datepublish'] = $item->datepublish;
+        if (!$allowedFields || in_array('datepublish', $allowedFields)) {
+            $values['datepublish'] = $item->datepublish->toDateTimeString();
+        }
+        if (!$allowedFields || in_array('datechanged', $allowedFields)) {
+            $values['datechanged'] = $item->datechanged->toDateTimeString();
+        }
+        if (!$allowedFields || in_array('datecreated', $allowedFields)) {
+            $values['datecreated'] = $item->datecreated->toDateTimeString();
         }
 
+        // @TODO: custom field formatters by static class in extension config file
         // Check if we have image or file fields present. If so, see if we need to
         // use the full URL's for these.
-        if (isset($values[$key]['file'])) {
-            foreach ($contenttype['fields'] as $key => $field) {
-                if (($field['type'] == 'image' || $field['type'] == 'file') && isset($values[$key])) {
-                    $values[$key]['url'] = sprintf(
-                        '%s%s%s',
-                        $this->app['paths']['canonical'],
-                        $this->app['paths']['files'],
-                        $values[$key]['file']
-                    );
-                }
-                if ($field['type'] == 'image' && isset($values[$key]) && is_array($this->config['thumbnail'])) {
-                    // dump($this->app['paths']);
-                    $values[$key]['thumbnail'] = sprintf(
-                        '%s/thumbs/%sx%s/%s',
-                        $this->app['paths']['canonical'],
-                        $this->config['thumbnail']['width'],
-                        $this->config['thumbnail']['height'],
-                        $values[$key]['file']
-                    );
+        foreach ($item->contenttype['fields'] as $key => $field) {
+            if (($field['type'] == 'image' || $field['type'] == 'file') && isset($values[$key])) {
+                $values[$key]['url'] = sprintf(
+                    '%s%s%s',
+                    $this->app['paths']['canonical'],
+                    $this->app['paths']['files'],
+                    $values[$key]['file']
+                );
+            }
+
+            if ($field['type'] == 'image' && isset($values[$key]) && is_array($this->config['thumbnail'])) {
+                $values[$key]['thumbnail'] = sprintf(
+                    '%s/thumbs/%sx%s/%s',
+                    $this->app['paths']['canonical'],
+                    $this->config['thumbnail']['width'],
+                    $this->config['thumbnail']['height'],
+                    $values[$key]['file']
+                );
+            }            
+            else if ($field['type'] == 'date') {
+                if (isset($values[$key]) && $values[$key] instanceof Carbon) {
+                    $values[$key] =  $values[$key]->toDateTimeString();
                 }
             }
         }
@@ -120,7 +136,8 @@ class DataFormatter
         $relationship = [];
 
         // get explicit relations
-        $cts = array_keys($item->contenttype['relations']);
+        $relations = empty($item->contenttype['relations']) ? [] : $item->contenttype['relations'];
+        $cts = array_keys($relations);
 
         foreach ($item->relation->toArray() as $rel) {
             if ($rel['from_contenttype'] == $contenttype) {
@@ -146,7 +163,7 @@ class DataFormatter
             
             // test deleted status
             // @TODO, need RFC, too slow
-            if ($this->config['soft-delete']['enable']) {
+            if ($this->config['delete']['soft']) {
                 $f = $this->getFromCache($rct, $rid);
                 $deleted = ($f->status == 'draft');
                 if ($deleted) {
@@ -156,28 +173,25 @@ class DataFormatter
 
             // @TODO: RFC
             // this return deleted and not published values :/
-            $relationship[$rct] = array(
-                "data" => array(),
-                "links" => array()
-            );
+            if (!array_key_exists($rct, $relationship)) {
+                $relationship[$rct] = array(
+                    "data" => array(),
+                    "links" => array()
+                );
+            }
 
             $relationship[$rct]['data'][] = array('type' => $rct, 'id' => $rid);
-            $relationship[$rct]['links'] = $this->getLinksRelated(
-                array(
-                    'type' => $rct,
-                    'id' => $rid
-                )
-            );
+            $relationship[$rct]['links'] = $this->getLinksRelated($item, $rct);
 
             // @TODO: support "dot sintax" in include
             // follow JSON API specification
             if (in_array($rct, $this->include) && $deep) {
-                if (!array_key_exists($ct, $this->includes)) {
-                    $this->includes[$ct] = [];
+                if (!array_key_exists($rct, $this->includesStack)) {
+                    $this->includesStack[$rct] = [];
                 }
 
-                if (!array_key_exists($rid, $this->includes[$rct])) {
-                    $this->includes[$rct][$rid] = $this->one($this->getFromCache($rct, $rid), false, true);
+                if (!array_key_exists($rid, $this->includesStack[$rct])) {
+                    $this->includesStack[$rct][$rid] = $this->one($this->getFromCache($rct, $rid), false, true);
                 }
             }
         }
@@ -209,18 +223,73 @@ class DataFormatter
 
     private function getLinksItem($item)
     {
-        $protocol = stripos($_SERVER['SERVER_PROTOCOL'], 'https') === true ? 'https://' : 'http://';
-        $host = $_SERVER[HTTP_HOST];
-        $api = $this->config['endpoints']['rest'];
-        $self = $protocol . $host . $api . "/" . $item->contenttype['slug'] . "/" . $item->id;
         return array(
-            "self" => $self
-            );
+        "self" => sprintf(
+                '%s%s/%s/%s',
+                $this->app['paths']['canonical'],
+                $this->config['endpoints']['rest'],
+                $item->contenttype['slug'],
+                $item->id
+            )
+        );
     }
 
-    private function getLinksRelated($item)
+    private function getLinksList() {
+        return array(
+        'self' => sprintf(
+                '%s%s/%s%s',
+                $this->app['paths']['canonical'],
+                $this->config['endpoints']['rest'],
+                $this->params['contenttype']['slug'],
+                $this->paramsToUri()
+            ),
+        'first' => sprintf(
+                '%s%s/%s%s',
+                $this->app['paths']['canonical'],
+                $this->config['endpoints']['rest'],
+                $this->params['contenttype']['slug'],
+                ''
+            ),
+        'next' => sprintf(
+                '%s%s/%s%s',
+                $this->app['paths']['canonical'],
+                $this->config['endpoints']['rest'],
+                $this->params['contenttype']['slug'],
+                $this->paramsToUri('next')
+            ),
+        'last' => sprintf(
+                '%s%s/%s%s',
+                $this->app['paths']['canonical'],
+                $this->config['endpoints']['rest'],
+                $this->params['contenttype']['slug'],
+                $this->paramsToUri('last')
+            ),
+        );
+    }
+    private function getLinksRelated($item, $rct)
     {
-        return array("self" => "", "related" => "");
+        return array(
+        "self" => sprintf(
+                '%s%s/%s/%s/relationships/%s',
+                $this->app['paths']['canonical'],
+                $this->config['endpoints']['rest'],
+                $item->contenttype['slug'],
+                $item->id,
+                $rct
+            ),
+        "related" => sprintf(
+                '%s%s/%s/%s/%s',
+                $this->app['paths']['canonical'],
+                $this->config['endpoints']['rest'],
+                $item->contenttype['slug'],
+                $item->id,
+                $rct
+            )        
+        );
+    }
+
+    private function paramsToUri($modifier = false) {
+        return "";
     }
 
     private function isIterable($var)
@@ -228,8 +297,11 @@ class DataFormatter
         return (is_array($var) || $var instanceof \Traversable);
     }
 
+    private function coalesce() {
+        return array_shift(array_filter(func_get_args()));
+    }
     private function addToCache($ct, $id)
-    {
+    {   
         if (!array_key_exists($ct, $this->queryCache)) {
             $this->queryCache[$ct] = [];
         }
@@ -241,7 +313,7 @@ class DataFormatter
         if (!array_key_exists($id, $this->queryCache[$ct])) {
             $q = "{$ct}/{$id}";
             $this->queryCache[$ct][$id] = function () use ($q) {
-                return $this->app['query']->getContent($q);
+                return $this->app['query']->getContent($q, []);
             };
         }
     }

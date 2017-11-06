@@ -20,12 +20,12 @@ class PaginationDirective
         $offset = ($pagination->page - 1) * $pagination->limit;
         $query->getQueryBuilder()->setFirstResult($offset);
         $query->getQueryBuilder()->setMaxResults($pagination->limit);
-        
+
         // counter
         $pagination->count = function () use ($query) {
             $queryCount = clone $query->getQueryBuilder();
             $queryCount
-                ->resetQueryParts(['maxResults', 'firstResult', 'orderBy'])
+                //->resetQueryParts(['maxResults', 'firstResult', 'orderBy'])
                 ->setFirstResult(null)
                 ->setMaxResults(null)
                 ->select('COUNT(*) as total');

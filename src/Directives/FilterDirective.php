@@ -14,12 +14,16 @@ class FilterDirective
      * @param StdClass       $unrelated
      */
     public function __invoke(QueryInterface $query, $search)
-    {
+    {   
+        //dump(get_class_methods($query), $query->getContentType()); exit;
+        $ct = $query->getContentType();
+        $fields = ($search->getFields)($ct);
+        $alias = "_" . $ct;
         $qb = $query->getQueryBuilder();
         $orX = $qb->expr()->orX();
         $term = "'%" . $search->term . "%'";
-        foreach ($search->fields as $field) {
-            $col = $search->alias.".".$field;
+        foreach ($fields as $field) {
+            $col = $alias.".".$field;
             $orX->add($qb->expr()->like($col, $term));
         }
 

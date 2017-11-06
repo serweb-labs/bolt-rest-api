@@ -54,17 +54,15 @@ class RestExtension extends SimpleExtension
     {
         $config = $this->getConfig();
 
-        $app['query.parser'] = $app->share(
-            $app->extend('query.parser', function (ContentQueryParser $parser) {
+        $app['query.parser'] = $app->extend('query.parser', function (ContentQueryParser $parser) {
+                $parser->addDirectiveHandler('pagination', new PaginationDirective());
+                $parser->addDirectiveHandler('related', new RelatedDirective());
+                $parser->addDirectiveHandler('unrelated', new UnrelatedDirective());
+                $parser->addDirectiveHandler('filter', new FilterDirective());
+                $parser->addDirectiveHandler('count', new CountDirective());
                 return $parser;
-            })
-        );
+            });
 
-        $app['query.parser']->addDirectiveHandler('pagination', new PaginationDirective());
-        $app['query.parser']->addDirectiveHandler('related', new RelatedDirective());
-        $app['query.parser']->addDirectiveHandler('unrelated', new UnrelatedDirective());
-        $app['query.parser']->addDirectiveHandler('filter', new FilterDirective());
-        $app['query.parser']->addDirectiveHandler('count', new CountDirective());
 
         foreach ($config['security']['providers'] as $provider) {
             $name = ucfirst($provider) . "AuthenticationService";
