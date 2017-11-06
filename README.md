@@ -1,10 +1,10 @@
 Rest Api for Bolt
 ======================
-#### Build awesome extensions and powerfull webapps.
+#### The backend for your applications.
 
- - ¡Working!
  - Use Rest with JWT (json web token) 
- - Create, update, index and retrieve content in json, xml, and more.
+ - Create, update, index and retrieve content in json
+ - Follow the "json api" specification
  - Extensible (soon documentation!)
 
 ___
@@ -26,37 +26,38 @@ ___
 #### Get list a contents : USE GET REQUEST
 	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/pages"
 
-###### "where" param
-refine your result with a like sql clause, use "||" ">" or "<"
+###### "filter" param
+refine your result, use "||" ">" or "<"
 
-	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/pages?&where[brand]=foo&where[model]=bar&[status]=draft"
-	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/pages?&where[brand]=car&where[brand]=bmw || fiat"
-	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/pages?&where[brand]=car&where[id]=>100"
+	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/pages?&filter[brand]=foo&filter[model]=bar&filter[status]=draft"
+	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/pages?&filter[brand]=car&filter[brand]=bmw || fiat"
+	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/pages?&filter[brand]=car&filter[id]=>100"
 
-###### "deep" param
+###### "deep" filter
 when deep is enabled, the relationships be treated as one more field of content, useful if for example I want to search for content by the username, working with "filter" param.
 
-	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/pages?filter=john&deep=1"
+	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/pages?filter[contain]=john&filter[deep]=true"
 
-###### "related" param
+###### "related" filter
 refine your result according the related content 
 
 	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/pages&related=clients:5,10"
 
-###### "norelated" param
+###### "unrelated" filter
 exclude from the results content that is related to certain content type
 
-	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/review?norelated=report"
+	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/review?filter[unrelated]=report:1"
 
 ###### "fields" param
 limit the format of the result to the fields in the parameter
 
 	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/review?fields=title,details"
 
-###### "limit" param
-paginate the results according this param
+###### "page" param
+paginate the results according this param, 
+or return specific page
 
-	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/review?limit=10"
+	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/review?page[size]=10&page[num]=2"
 
 ###### "order" param
 order the result by field or metedata, use "-" prefix with invert the natural order
@@ -64,11 +65,6 @@ order the result by field or metedata, use "-" prefix with invert the natural or
 	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/review?order=status"
 	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/review?order=title"
 	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/review?order=-title"
-
-###### "page" param
-pagination: return specific page
-
-	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/review?page=2"
 
 ###### Use the response headers as pagination helpers
 	'X-Total-Count' // total 
@@ -78,11 +74,6 @@ pagination: return specific page
 ___
 #### Retrieve one content: USE GET REQUEST
 	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/pages/1"
-
-###### "fields" param
-limit the format of the result to the fields in the parameter
-
-	curl -X GET -H "Accept: application/json" -H "Authorization: Bearer here.myauth.token" -H "https://example.com/api/pages/1?fields=title,details"
 
 ___
 #### Create content: USE POST REQUEST and send the data in the body
