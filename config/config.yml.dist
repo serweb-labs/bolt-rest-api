@@ -4,12 +4,12 @@ endpoints:
     authenticate: '/auth'
 
 security:
-    providers: [jwt]
+    providers: [jwt]    
     # json web tokens configurations
     jwt:
         secret: IamASecretKeyChangeMePlease
         prefix: Bearer
-        lifetime: 3600
+        lifetime: 36000
         user_param: username
         pass_param: password
         request_header_name: Authorization
@@ -21,6 +21,12 @@ cors:
     enabled: true
     allow-origin: '*'
 
+delete:
+    soft: true
+    status: 'held'
+
+only_published: true
+
 # media types in request and responses
 media:
     accept: '*'
@@ -29,37 +35,8 @@ media:
 # enable / disable where, order, filter
 params: true
 
-# ========================================================= #
-#         options that have not yet implemented             #
-# ========================================================= #
-#
-# contenttypes:
-#     all:
-#         options:
-#             limit: 10
-#             default: published    
-#         index:
-#             # all fields: all
-#             # one specific related field pages: title
-#             # more the one specific related fields: [title, slug, teaser, image]
-#             fields: all
-#             # all related content type: all
-#             # single specific related content type: pages
-#             # multiple specific related content type: [pages, entries]
-#             related: all            
-#             enabled: true
-#             where: true
-#             filter: true
-#             order: true
-#             page: true
-#         retrieve:
-#             fields: all
-#             related: all
-#             enabled: true
-#         create:
-#             fields: all
-#             enabled: true
-#         update:
-#             fields: all
-#             enabled: true
 
+default-options:
+    sort: "-datechanged"
+
+filter-fields-available: ['status', 'type', 'issue', 'datepublish', 'contain']
