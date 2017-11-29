@@ -15,10 +15,11 @@ class FilterDirective
      */
     public function __invoke(QueryInterface $query, $search)
     {   
-        //dump(get_class_methods($query), $query->getContentType()); exit;
+
         $ct = $query->getContentType();
-        $fields = ($search->getFields)($ct);
+        $fields = call_user_func($search->getFields, $ct);
         $alias = "_" . $ct;
+
         $qb = $query->getQueryBuilder();
         $orX = $qb->expr()->orX();
         $term = "'%" . $search->term . "%'";

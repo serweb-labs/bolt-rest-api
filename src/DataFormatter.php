@@ -37,8 +37,8 @@ class DataFormatter
         $this->cache = [];
     }
 
-    public function list($contenttype, $items)
-    {
+    public function listing($contenttype, $items, $basic = false)
+    {   
         if (!$this->isIterable($items)) {
             throw new \Exception("empty content");
         }
@@ -48,12 +48,12 @@ class DataFormatter
         }
         $all = [];
         foreach ($items as $item) {
-            $all[] = $this->one($item);
+            $all[] = $this->item($item);
         }
 
         return array(
-            'links' => $this->getLinksList(),
-            'meta' => array(
+            'links' => $basic ? array() : $this->getLinksList(),
+            'meta' => $basic ? array() : array(
                  'count' => (Int) $this->count,
                  'page' => (Int) $this->params['pagination']->page,
                  'limit' => (Int) $this->params['pagination']->limit
@@ -64,7 +64,19 @@ class DataFormatter
              );
     }
 
-    public function one($item, $deep = true, $child = false)
+    public function one($item)
+    {
+
+        $content = $this->item($item);
+
+        return array(
+            'links' => $this->getLinksOne($item->id),
+            'data' => $content,
+            'included' => $this->includesToArray($this->includesStack)
+            );
+    }
+    
+    public function item($item, $deep = true, $child = false)
     {
         $contenttype = $item->contenttype['slug'];
 
@@ -95,42 +107,50 @@ class DataFormatter
             $values['ownerid'] = $item->ownerid;
         }
         if (!$allowedFields || in_array('datepublish', $allowedFields)) {
-            $values['datepublish'] = $item->datepublish->toDateTimeString();
+            $values['datepublish'] = $item->datepublish->toIso8601String();
         }
         if (!$allowedFields || in_array('datechanged', $allowedFields)) {
-            $values['datechanged'] = $item->datechanged->toDateTimeString();
+            $values['datechanged'] = $item->datechanged->toIso8601String();
         }
         if (!$allowedFields || in_array('datecreated', $allowedFields)) {
-            $values['datecreated'] = $item->datecreated->toDateTimeString();
+            $values['datecreated'] = $item->datecreated->toIso8601String();
         }
 
         // @TODO: custom field formatters by static class in extension config file
         // Check if we have image or file fields present. If so, see if we need to
         // use the full URL's for these.
         foreach ($item->contenttype['fields'] as $key => $field) {
-            if (($field['type'] == 'image' || $field['type'] == 'file') && isset($values[$key])) {
-                $values[$key]['url'] = sprintf(
-                    '%s%s%s',
-                    $this->app['paths']['canonical'],
-                    $this->app['paths']['files'],
-                    $values[$key]['file']
-                );
-            }
 
+            if (($field['type'] == 'image' || $field['type'] == 'file') && isset($values[$key])) {
+                if (isset($values[$key]['file'])) {
+                    $values[$key]['url'] = sprintf(
+                        '%s%s%s',
+                        $this->app['paths']['canonical'],
+                        $this->app['paths']['files'],
+                        $values[$key]['file']
+                    );
+                }
+            }
+            
             if ($field['type'] == 'image' && isset($values[$key]) && is_array($this->config['thumbnail'])) {
-                $values[$key]['thumbnail'] = sprintf(
-                    '%s/thumbs/%sx%s/%s',
-                    $this->app['paths']['canonical'],
-                    $this->config['thumbnail']['width'],
-                    $this->config['thumbnail']['height'],
-                    $values[$key]['file']
-                );
+                
+                if (isset($values[$key]['file'])) {                  
+                    $values[$key]['thumbnail'] = sprintf(
+                        '%s/thumbs/%sx%s/%s',
+                        $this->app['paths']['canonical'],
+                        $this->config['thumbnail']['width'],
+                        $this->config['thumbnail']['height'],
+                        $values[$key]['file']
+                    );
+                }
+                
             }            
             else if ($field['type'] == 'date') {
                 if (isset($values[$key]) && $values[$key] instanceof Carbon) {
-                    $values[$key] =  $values[$key]->toDateTimeString();
+                    $values[$key] =  $values[$key]->toIso8601String();
                 }
             }
+            
         }
 
         $relationship = [];
@@ -165,8 +185,13 @@ class DataFormatter
             // @TODO, need RFC, too slow
             if ($this->config['delete']['soft']) {
                 $f = $this->getFromCache($rct, $rid);
-                $deleted = ($f->status == 'draft');
-                if ($deleted) {
+                if ($f) {
+                    $deleted = ($f->status == $this->config['delete']['status']);
+                    if ($deleted) {
+                        continue;
+                    }
+                }
+                else {
                     continue;
                 }
             }
@@ -191,7 +216,7 @@ class DataFormatter
                 }
 
                 if (!array_key_exists($rid, $this->includesStack[$rct])) {
-                    $this->includesStack[$rct][$rid] = $this->one($this->getFromCache($rct, $rid), false, true);
+                    $this->includesStack[$rct][$rid] = $this->item($this->getFromCache($rct, $rid), false, true);
                 }
             }
         }
@@ -266,6 +291,20 @@ class DataFormatter
             ),
         );
     }
+
+    private function getLinksOne($id) {
+        return array(
+        'self' => sprintf(
+                '%s%s/%s/%s%s',
+                $this->app['paths']['canonical'],
+                $this->config['endpoints']['rest'],
+                $this->params['contenttype']['slug'],
+                $id,
+                $this->paramsToUri()
+            ),
+        );
+    }
+
     private function getLinksRelated($item, $rct)
     {
         return array(

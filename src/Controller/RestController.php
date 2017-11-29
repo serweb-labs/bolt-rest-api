@@ -97,7 +97,7 @@ class RestController implements ControllerProviderInterface
  
     private function getDefaultSort()
     {
-        return $this->config["sort"]["default"] ? : "-id";
+        return "datepublish";
     }
 
     // @TODO: contenttype specif
@@ -125,10 +125,7 @@ class RestController implements ControllerProviderInterface
             ),
             "default-query" => array(
                 "status" => "published",
-                "related" => false,
-                "unrelated" => false,
                 "contain" => false,
-                "deep" => false
             ),
             "default-postfilter" => array(
                 "related" => false,
@@ -146,7 +143,9 @@ class RestController implements ControllerProviderInterface
                 "height" => 500,
             )
         );
-        return ($config) ? array_merge((array) $default, (array) $config) : $default;
+
+
+        return ($config) ? array_replace_recursive((array) $default, (array) $config) : $default;
     }
 
 
@@ -156,8 +155,6 @@ class RestController implements ControllerProviderInterface
         $slug = $request->get("slug") ? ":" . $request->get("slug") : "";
         $action = $request->get("action");
         $what = "contenttype:{$contenttype}:{$action}{$slug}";
-        //dump($this->user);
-        //echo $what; exit;
         return $this->app['permissions']->isAllowed($what, $this->user);
     }
 
@@ -223,7 +220,7 @@ class RestController implements ControllerProviderInterface
 
     public function listContentAction(Request $request)
     {
-        return $this->app["rest.{$this->vendor}"]->listContent($request, $this->config);
+        return $this->app["rest.{$this->vendor}"]->listContent($this->config);
     }
 
 
@@ -234,18 +231,22 @@ class RestController implements ControllerProviderInterface
 
     public function updateContentAction($contenttype, $slug)
     { 
-        return $this->app["rest.{$this->vendor}"]->updateContent($contenttype, $slug);
+        return $this->app["rest.{$this->vendor}"]->updateContent($contenttype, $slug, $this->config);
     }
     
     public function createContentAction($contenttype)
     { 
-        return $this->app["rest.{$this->vendor}"]->createContent($contenttype);
+        return $this->app["rest.{$this->vendor}"]->createContent($contenttype, $this->config);
     }
     
+    public function deleteContentAction($contenttype, $slug)
+    { 
+        return $this->app["rest.{$this->vendor}"]->deleteContent($contenttype, $slug, $this->config);
+    }
 
     public function relatedContentAction($contenttype, $slug, $relatedct, Request $request)
     {
-        return $this->app["rest.{$this->vendor}"]->relatedContent($contenttype, $slug, $relatedct, $request, $this->config);
+        return $this->app["rest.{$this->vendor}"]->relatedContent($contenttype, $slug, $relatedct, $this->config);
     }
 
 

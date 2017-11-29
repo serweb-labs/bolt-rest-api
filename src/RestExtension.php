@@ -96,6 +96,34 @@ class RestExtension extends SimpleExtension
             }
         );
 
+        $app['rest.cors'] = $app->share(
+            function () use ($config) {
+                if ($config["cors"]['enabled']) {
+                    $response = new Response();
+                    $response->headers->set(
+                        'Access-Control-Allow-Origin',
+                        $config["cors"]["allow-origin"]
+                    );
+                    $a = $config["security"]["jwt"]["request_header_name"] . ", X-Pagination-Limit, X-Pagination-Page, X-Total-Count, Content-Type";
+        
+                    $methods = "GET, POST, PATCH, PUT, DELETE";
+        
+                    $response->headers->set(
+                        'Access-Control-Allow-Headers',
+                        $a
+                    );
+        
+                    $response->headers->set(
+                        'Access-Control-Allow-Methods',
+                        $methods
+                    );
+        
+                    return $response;
+                } else {
+                    return "";
+                }
+            }
+        );
 
         $app->register(new SerializerServiceProvider());
     }
