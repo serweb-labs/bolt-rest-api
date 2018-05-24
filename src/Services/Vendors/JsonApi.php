@@ -245,7 +245,7 @@ class JsonApi
         );
         
         // aditional queries
-        $options = (count($q > 0)) ? array_merge((array) $options, (array) $q) : $options;
+        $options = (count($q) > 0) ? array_merge((array) $options, (array) $q) : $options;
         
         $results = $this->app['query']->getContent(
             $contenttypes,
